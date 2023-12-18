@@ -77,4 +77,4 @@ def verifyCodeforcesHandle(codeforcesHandle):
 
 client.run(os.getenv('DISCORD_KEY'))
 #run bot, update each time you change sthm in discord dev portal, stored key 
-#client.run must be bottom of all code,
+#client.run must be bottom of all code...
