@@ -1,6 +1,11 @@
-#first terminal pip3 install discord.py
+#first terminal pip3 install discord.py, if needed
 import discord 
 from discord.ext import commands
+from dotenv import load_dotenv y 
+import os
+
+load_dotenv() #load key from .env file
+
 
 #initialize our bot 
 client = commands.Bot(command_prefix = '!', intents = discord.Intents.all()) 
@@ -64,8 +69,12 @@ def verifyCodeforcesHandle(codeforcesHandle):
     if response.status_code == 200:
         return True 
     else:
-        return False
+        return False 
 
 
-client.run('') #run bot, update each time you change sthm in discord dev portal, 
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+client.run(os.getenv('DISCORD_KEY'))
+#run bot, update each time you change sthm in discord dev portal, stored key 
 #this must be the final line 
