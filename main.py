@@ -1,7 +1,7 @@
 #first terminal pip3 install discord.py, if needed
 import discord 
 from discord.ext import commands
-from dotenv import load_dotenv y 
+from dotenv import load_dotenv 
 import os
 
 load_dotenv() #load key from .env file
@@ -77,4 +77,4 @@ def verifyCodeforcesHandle(codeforcesHandle):
 
 client.run(os.getenv('DISCORD_KEY'))
 #run bot, update each time you change sthm in discord dev portal, stored key 
-#this must be the final line 
+#client.run must be bottom of all code
