@@ -128,6 +128,17 @@ async def register(ctx, codeforcesHandle: str):
     
     await ctx.send("You have registered " + codeforcesHandle + " with " + discordHandle)
 
+@client.command() # generate a problem of difficulty command: !problem difficulty
+async def problem(ctx, difficulty: str):
+    #check if string is valid problem difficulty 800-3500
+    if not difficulty.isnumeric() or int(difficulty) < 800 or int(difficulty) > 3500 or int(difficulty) % 100 != 0:
+        await ctx.send("Invalid problem difficulty >.<")
+        return
+    
+    problemlink = generateProblem(int(difficulty))
+
+    await ctx.send("Here's a problem of difficulty " +  difficulty + " " + problemlink)
+
 
 # making api call to codeforces to verify handle
 def verifyCodeforcesHandle(codeforcesHandle):
@@ -136,6 +147,19 @@ def verifyCodeforcesHandle(codeforcesHandle):
         return True 
     else:
         return False 
+
+
+def generateProblem(difficulty: int):
+    #grab list of problems of difficulty (10,000 problems)
+    response = requests.get("https://codeforces.com/api/problemset.problems")
+    data = response.json()
+    problems = data['result']['problems']
+
+    for problem in problems:
+        if "rating" in problem and problem["rating"] == difficulty:
+            return "https://codeforces.com/problemset/problem/" + str(problem["contestId"]) + "/" + problem['index']
+    
+    return "no problem of that difficulty for you, goon."
 
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
