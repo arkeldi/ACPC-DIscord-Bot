@@ -16,81 +16,85 @@ async def on_ready(): #when bot is ready to recieve commands
     print("Bot is ready") #user wont see this we will in terminal 
     print("------------------") #seperate for clarity 
 
+
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#duel command goes like this: 
+#get problems solved by both users
+#get problems avaliable via codeforces api 
+#filter problems based on level and unseen 
+#output link 
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+userDict = {}
+
 @client.command()
 async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500
+
+    if not 800 <= level <= 3500 or level % 100 != 0:
+        await ctx.send("Invalid problem difficulty >.<")
+        return
 
     challenger = str(ctx.author.id) #get discord id of challenger
     opponent = str(member.id) #get discord id of opponent
     discordServer = str(ctx.guild.id) #get discord server id
 
     if discordServer not in userDict or challenger not in userDict[discordServer] or opponent not in userDict[discordServer]:
-        await ctx.send("One of you is not registered, do command !register codeforcesUsername")
+        await ctx.send("Registration error, do command !register codeforcesUsername")
         return
+    
     challengerHandle = userDict[discordServer][challenger]
     opponentHandle = userDict[discordServer][opponent]
 
-    #get problems from codeforces api for challenger
-    challengerProblem = await getProblem(challengerHandle)
-    challengerLink = await giveLink(level, challengerProblem)
-
-    if challengerLink:
-        await ctx.send(f"{ctx.author.mention}, click if you dare: {challengerLink}")
-    else: 
-        await ctx.send("error, no problem found. rip.")
-
-
-    #and now opponent    
-    opponentProblem = await getProblem(opponentHandle)
-    opponentLink = await giveLink(level, opponentProblem)
-
-    if opponentLink:
-        await ctx.send(f"{member.mention}, click if you dare: {opponentLink}")
+    #get filtered problems from codeforces api for challenger and opponent
+    problemLink = await getConstraintedProblems(level, challengerHandle, opponentHandle)
+    if problemLink:
+        await ctx.send(f"Duel challenge: {problemLink}")
     else:
-        await ctx.send("error, no problem found. rip.")
-    
-
-async def getLink(level, ):
-    
+        await ctx.send("Error: No suitable problem found.")
 
 
+async def getConstraintedProblems(level, challengerHandle, opponentHandle):
+    # Get problems solved by both users
+    challengerProblems = await getProblemNotSeen(challengerHandle)
+    opponentProblems = await getProblemNotSeen(opponentHandle)
+
+    # Fetch all problems from Codeforces
+    response = requests.get("https://codeforces.com/api/problemset.problems")
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+    problems = data["result"]["problems"]
+
+    # Filter problems based on level and whether they've been solved by either user
+    problemsLevel = [p for p in problems if "rating" in p and p["rating"] == level]
+    problemsNotSeen = [p for p in problemsLevel if (p["contestId"], p["index"]) not in challengerProblems and (p["contestId"], p["index"]) not in opponentProblems]
+
+    if not problemsNotSeen:
+        return None
+
+    # Select a random problem and return the link
+    problem = random.choice(problemsNotSeen)
+    return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}"
 
 
-
-
-async def getProblem(handle):
-    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
+async def getProblemNotSeen(handle): #getting problem unseen by each user
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1" #url specific to user
     response = requests.get(url)
     if response.status_code != 200:
         return None
-    
-    response = response.json()
-    if response["status"] != "OK":
+
+    data = response.json()
+    if data["status"] != "OK":
         return None
-    problems = set() 
-    for submission in response["result"]:
+
+    problems = set()
+    for submission in data["result"]:
         if submission["verdict"] == "OK":
             problem = submission["problem"]
             problems.add((problem["contestId"], problem["index"]))
+
     return problems
-
-async def filterProblem(ctx, level, challengerProblem, opponentProblem):
-    response = requests.get("https://codeforces.com/api/problemset.problems")
-    if response.status_code != 200:
-        await ctx.send("error getting problem")
-        return
-    response = response.json()
-    problems = response["result"]["problems"]
-    problemsLevel = [p for p in problems if "rating" in p and p["rating"] == level] #check problems equal to specificed level in command 
-    problemsNotSeen = [p for p in problemsLevel if (p["contestId"], p["index"]) not in challengerProblem and (p["contestId"], p["index"]) not in opponentProblem]
-
-    if len(problemsNotSeen) == 0:
-        await ctx.send("No problems available")
-        return
-
-    problem = random.choice(problemsNotSeen)
-    await ctx.send(f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}")
-    return
-
 
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -102,7 +106,6 @@ async def filterProblem(ctx, level, challengerProblem, opponentProblem):
 #Register user command here:, going the temp memory route, just python dict 
 #key,value dictionary for discord -> codeforces handle
 
-userDict = {}
 
 @client.command() # register command: !register codeforcesUsername
 async def register(ctx, codeforcesHandle: str):
@@ -138,9 +141,5 @@ def verifyCodeforcesHandle(codeforcesHandle):
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-#check which problems have been solved by codeforces accoint 
-
-
 client.run(os.getenv('DISCORD_KEY'))
-#run bot, update each time you change sthm in discord dev portal, stored key 
 #client.run must be bottom of all code...
