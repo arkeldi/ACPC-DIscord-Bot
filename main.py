@@ -21,9 +21,9 @@ async def on_ready(): #when bot is ready to recieve commands
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 userDict = {}
-#Register discord handle to codeforces handle:
+#register discord handle to codeforces handle:
 
-#Register user command here:, going the temp memory route, just python dict 
+#register user command here:, going the temp memory route, just python dict 
 #key,value dictionary for discord -> codeforces handle
 
 
@@ -32,7 +32,7 @@ async def register(ctx, codeforcesHandle: str):
     #check if user is registered ?
     discordHandle = str(ctx.author.id)
     discordServer = str(ctx.guild.id) #make str here is using json later
-    discordUserId = str(ctx.author.id)  # Use user id as key
+    discordUserId = str(ctx.author.id)  # use user id as key
 
     #check if codeforces handle is valid
     if not verifyCodeforcesHandle(codeforcesHandle):
@@ -44,7 +44,6 @@ async def register(ctx, codeforcesHandle: str):
 
     userDict[discordServer][discordUserId] = codeforcesHandle  # Store with user id as key
     await ctx.send(f"You have registered {codeforcesHandle} with {ctx.author.mention}")
-
 
 
 # making api call to codeforces to verify handle
@@ -70,7 +69,7 @@ def verifyCodeforcesHandle(codeforcesHandle):
 
 
 @client.command()
-async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500
+async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500, spaces are not sensitive, i think 
 
     if not 800 <= level <= 3500 or level % 100 != 0:
         await ctx.send("Invalid problem difficulty >.<")
@@ -87,35 +86,35 @@ async def duel(ctx, member: discord.Member, level: int): # example command: !due
     challengerHandle = userDict[discordServer][challenger]
     opponentHandle = userDict[discordServer][opponent]
 
-    #get filtered problems from codeforces api for challenger and opponent
+    #get filtered problems from codeforces api for challenger and opponent, bot outputs link 
     problemLink = await getConstraintedProblems(level, challengerHandle, opponentHandle)
     if problemLink:
-        await ctx.send(f"Duel challenge: {problemLink}")
+        await ctx.send(f"Let the best coder win: {problemLink}")
     else:
         await ctx.send("Error: No suitable problem found.")
 
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
-    # Get problems solved by both users
+    # getter for problem not seen for both users 
     challengerProblems = await getProblemNotSeen(challengerHandle)
     opponentProblems = await getProblemNotSeen(opponentHandle)
 
-    # Fetch all problems from Codeforces
+    # getter for all list of problems from codeforces api
     response = requests.get("https://codeforces.com/api/problemset.problems")
     if response.status_code != 200:
         return None
 
-    data = response.json()
+    data = response.json() #codeforces data is json 
     problems = data["result"]["problems"]
 
-    # Filter problems based on level and whether they've been solved by either user
+    # problem must be same level requested and not seen by both users
     problemsLevel = [p for p in problems if "rating" in p and p["rating"] == level]
     problemsNotSeen = [p for p in problemsLevel if (p["contestId"], p["index"]) not in challengerProblems and (p["contestId"], p["index"]) not in opponentProblems]
 
     if not problemsNotSeen:
         return None
 
-    # Select a random problem and return the link
+    # pick random problem, returning filtered link 
     problem = random.choice(problemsNotSeen)
     return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}"
 
