@@ -67,6 +67,7 @@ def verifyCodeforcesHandle(codeforcesHandle):
 #output link 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
+duelChallenges = {}
 
 @client.command()
 async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500, spaces are not sensitive, i think 
@@ -83,15 +84,37 @@ async def duel(ctx, member: discord.Member, level: int): # example command: !due
         await ctx.send("Registration error, do command !register codeforcesUsername")
         return
     
-    challengerHandle = userDict[discordServer][challenger]
-    opponentHandle = userDict[discordServer][opponent]
+    if discordServer not in duelChallenges:
+        duelChallenges[discordServer] = {}
 
-    #get filtered problems from codeforces api for challenger and opponent, bot outputs link 
-    problemLink = await getConstraintedProblems(level, challengerHandle, opponentHandle)
-    if problemLink:
-        await ctx.send(f"Let the best coder win: {problemLink}")
-    else:
-        await ctx.send("Error: No suitable problem found.")
+    duelChallenges[discordServer][challenger] = (opponent, level) #store duel challenge in list of challenges
+    #in server, user1 challenges user2 to a duel of level x
+    #key is discordServer, manage duels for each server 
+    #value is tuple: (opponent, level)
+    await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type !accept to accept the challenge... if you dare.")
+
+
+@client.command()
+async def accept(ctx):
+    opponentID = str(ctx.author.id) #get discord id of opponent, see if there is ongoing duel in the server
+    discordServer = str(ctx.guild.id)
+
+    if discordServer in duelChallenges: #if there is a duel challenge in the server
+        for challengerID, (oppID, level) in list(duelChallenges[discordServer].items()): #loop through all challenges in the server
+            if oppID == opponentID: #check is current user is the one being challenged, oppID
+                challengerHandle = userDict[discordServer][challengerID]
+                opponentHandle = userDict[discordServer][opponentID]
+                problemLink = await getConstraintedProblems(level, challengerHandle, opponentHandle)
+                if problemLink:
+                    await ctx.send(f"Ready, set, code: {problemLink}")
+                else:
+                    await ctx.send("error.")
+                
+                #remove challenge from list
+                del duelChallenges[discordServer][challengerID]
+                return 
+        #if we get here, no challenge found
+    await ctx.send("Challenge not found")
 
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
