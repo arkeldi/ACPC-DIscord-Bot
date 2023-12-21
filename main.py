@@ -30,7 +30,6 @@ userDict = {}
 @client.command() # register command: !register codeforcesUsername
 async def register(ctx, codeforcesHandle: str):
     #check if user is registered ?
-    discordHandle = str(ctx.author.id)
     discordServer = str(ctx.guild.id) #make str here is using json later
     discordUserId = str(ctx.author.id)  # use user id as key
 
@@ -68,10 +67,11 @@ def verifyCodeforcesHandle(codeforcesHandle):
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 duelChallenges = {}
+ongoingDuels = {}
 
 @client.command()
 async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500, spaces are not sensitive, i think 
-
+    
     if not 800 <= level <= 3500 or level % 100 != 0:
         await ctx.send("Invalid problem difficulty >.<")
         return
@@ -104,9 +104,12 @@ async def accept(ctx):
             if oppID == opponentID: #check is current user is the one being challenged, oppID
                 challengerHandle = userDict[discordServer][challengerID]
                 opponentHandle = userDict[discordServer][opponentID]
-                problemLink = await getConstraintedProblems(level, challengerHandle, opponentHandle)
-                if problemLink:
-                    await ctx.send(f"Ready, set, code: {problemLink}")
+                problem = await getConstraintedProblems(level, challengerHandle, opponentHandle)
+                print("problem",problem)
+                if problem:
+                    await ctx.send(f"Ready, set, code: {problem[0]}")
+                    ongoingDuels[challengerID] = [opponentID,problem[1]]
+                    ongoingDuels[opponentID] = [challengerID,problem[1]]
                 else:
                     await ctx.send("error.")
                 
@@ -116,6 +119,48 @@ async def accept(ctx):
         #if we get here, no challenge found
     await ctx.send("Challenge not found")
 
+@client.command()
+async def complete(ctx):
+    userID = str(ctx.author.id)
+    discordServer = str(ctx.guild.id)
+
+    #check that they are registered
+    if userID not in userDict[discordServer]:
+        await ctx.send("Error. user is not registered")
+        return
+    #check that there is an ongoing duel
+    codeForcesHandle = userDict[discordServer][userID]
+    if userID not in ongoingDuels:
+        await ctx.send("Error. User is not currently in a duel")
+        return
+    #find completion times of both people
+    duel = ongoingDuels[userID]
+    user1 = userID
+    user2 = duel[0]
+    handle1 = userDict[discordServer][userID]
+    handle2 = userDict[discordServer][duel[0]]
+    print("duel[1]",duel[1])
+    time1 = await getEarliestSubmissionTime(handle1, duel[1])
+    time2 = await getEarliestSubmissionTime(handle2, duel[1])
+    print("time1",time1)
+    print("time2",time2)
+
+    #compare and print results
+    if time1 == -1 and time2 == -1:
+        await ctx.send("Neither user has completed the problem")
+        return
+
+    if time2 == -1:
+        await ctx.send(f'User <@{user1}> has beaten user <@{user2}>')
+    elif time1 == -1:
+        await ctx.send(f'User <@{user2}> has beaten user <@{user1}>')
+    elif time1 < time2:
+        await ctx.send(f'User <@{user1}> has beaten user <@{user2}>')
+    else:
+        await ctx.send(f'User <@{user2}> has beaten user <@{user1}>')
+
+    del ongoingDuels[user1]
+    del ongoingDuels[user2]
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     # getter for problem not seen for both users 
@@ -139,7 +184,7 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
 
     # pick random problem, returning filtered link 
     problem = random.choice(problemsNotSeen)
-    return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}"
+    return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem
 
 
 async def getProblemNotSeen(handle): #getting problem unseen by each user
@@ -159,6 +204,25 @@ async def getProblemNotSeen(handle): #getting problem unseen by each user
             problems.add((problem["contestId"], problem["index"]))
 
     return problems
+
+async def getEarliestSubmissionTime(handle, problem):
+    earliestTime = -1
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
+    response = requests.get(url)
+    if response.status_code != 200:
+        return -1
+    
+    data = response.json()
+    if data["status"] != "OK":
+        return -1
+
+    for submission in data["result"]:
+        if submission["verdict"] == "OK" and submission["problem"] == problem: # correct problem
+            if earliestTime == -1 or earliestTime != -1 and submission["creationTimeSeconds"] < earliestTime: # better time
+                earliestTime = submission["creationTimeSeconds"]
+
+    return earliestTime
+
 
 
 client.run(os.getenv('DISCORD_KEY'))
