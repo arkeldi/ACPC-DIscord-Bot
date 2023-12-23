@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 import os
 import requests
 import random 
+from database.db import BotDatabase #importing BotDatabase class from db.py
 
 load_dotenv() #load discord bot key from .env file
 
-#initialize our bot 
-client = commands.Bot(command_prefix = '!', intents = discord.Intents.all()) 
+#initialize bot 
+client = commands.Bot(command_prefix = ';', intents = discord.Intents.all()) 
+db = BotDatabase() #creating instance of BotDatabase class
 #give prefix bot listens in for, using ! as prefix, after ! is command
 
 @client.event
@@ -16,38 +18,24 @@ async def on_ready(): #when bot is ready to recieve commands
     print("Bot is ready") #user wont see this we will in terminal 
     print("------------------") #seperate for clarity 
 
-
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-userDict = {}
-#register discord handle to codeforces handle:
+#**** note *****
+#using discord id's, ctx.author.id and member.id, remain the same regardless of username changes
 
-#register user command here:, going the temp memory route, just python dict 
-#key,value dictionary for discord -> codeforces handle
-
-
-@client.command() # register command: !register codeforcesUsername
-async def register(ctx, codeforcesHandle: str):
-    #check if user is registered ?
-    discordServer = str(ctx.guild.id) #make str here is using json later
-    discordUserId = str(ctx.author.id)  # use user id as key
-
-    #check if codeforces handle is valid
-    if not verifyCodeforcesHandle(codeforcesHandle):
+@client.command() # register command: !register codeforcesUsername, linking discord id to codeforces handle while in the right guild aka server
+async def register(ctx, codeforces_handle: str):
+    if not verifyCodeforcesHandle(codeforces_handle):
         await ctx.send("Incorrect Codeforces Username, check again silly goose")
         return
-
-    if discordServer not in userDict:
-        userDict[discordServer] = {}
-
-    userDict[discordServer][discordUserId] = codeforcesHandle  # Store with user id as key
-    await ctx.send(f"You have registered {codeforcesHandle} with {ctx.author.mention}")
+    db.register_user(ctx.guild.id, ctx.author.id, codeforces_handle) #adding this data to database, user_registrations table
+    await ctx.send(f"You have registered {codeforces_handle} with {ctx.author.mention}")
 
 
 # making api call to codeforces to verify handle
-def verifyCodeforcesHandle(codeforcesHandle):
-    response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforcesHandle)
+def verifyCodeforcesHandle(codeforces_handle):
+    response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
     if response.status_code == 200:
         return True 
     else:
@@ -57,17 +45,8 @@ def verifyCodeforcesHandle(codeforcesHandle):
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#duel command goes like this: 
-#get problems solved by both users
-#get problems avaliable via codeforces api 
-#filter problems based on level and unseen 
-#output link 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-
-duelChallenges = {}
-ongoingDuels = {}
 
 @client.command()
 async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500, spaces are not sensitive, i think 
@@ -80,87 +59,61 @@ async def duel(ctx, member: discord.Member, level: int): # example command: !due
     opponent = str(member.id) #get discord id of opponent
     discordServer = str(ctx.guild.id) #get discord server id
 
-    if discordServer not in userDict or challenger not in userDict[discordServer] or opponent not in userDict[discordServer]:
-        await ctx.send("Registration error, do command !register codeforcesUsername")
+    if not db.is_user_registered(challenger) or not db.is_user_registered(opponent):
+        await ctx.send("Error. One or more users are not registered")
         return
-    
-    if discordServer not in duelChallenges:
-        duelChallenges[discordServer] = {}
 
-    duelChallenges[discordServer][challenger] = (opponent, level) #store duel challenge in list of challenges
-    #in server, user1 challenges user2 to a duel of level x
-    #key is discordServer, manage duels for each server 
-    #value is tuple: (opponent, level)
+    #adding duel in db 
+    db.create_duel_challenge(discordServer, challenger, opponent, level) #create duel challenge in database
     await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type !accept to accept the challenge... if you dare.")
+
 
 
 @client.command()
 async def accept(ctx):
     opponentID = str(ctx.author.id) #get discord id of opponent, see if there is ongoing duel in the server
-    discordServer = str(ctx.guild.id)
+    
+    duel_challenge = db.get_duel_challenge(str(ctx.guild.id), opponentID)
+    if duel_challenge is None:
+        await ctx.send("Challenge not found")
+        return
+    # update duel status to accepted
+    db.update_duel_status(duel_challenge['duel_id'], 'accepted')
+    await ctx.send(f" The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
 
-    if discordServer in duelChallenges: #if there is a duel challenge in the server
-        for challengerID, (oppID, level) in list(duelChallenges[discordServer].items()): #loop through all challenges in the server
-            if oppID == opponentID: #check is current user is the one being challenged, oppID
-                challengerHandle = userDict[discordServer][challengerID]
-                opponentHandle = userDict[discordServer][opponentID]
-                problem = await getConstraintedProblems(level, challengerHandle, opponentHandle)
-                print("problem",problem)
-                if problem:
-                    await ctx.send(f"Ready, set, code: {problem[0]}")
-                    ongoingDuels[challengerID] = [opponentID,problem[1]]
-                    ongoingDuels[opponentID] = [challengerID,problem[1]]
-                else:
-                    await ctx.send("error.")
-                
-                #remove challenge from list
-                del duelChallenges[discordServer][challengerID]
-                return 
-        #if we get here, no challenge found
-    await ctx.send("Challenge not found")
+
 
 @client.command()
 async def complete(ctx):
-    userID = str(ctx.author.id)
-    discordServer = str(ctx.guild.id)
+    user_id = str(ctx.author.id)
+    discord_server_id = str(ctx.guild.id)
 
-    #check that they are registered
-    if userID not in userDict[discordServer]:
-        await ctx.send("Error. user is not registered")
+    if not db.is_user_registered(user_id):
+        await ctx.send("Error. User is not registered")
         return
-    #check that there is an ongoing duel
-    codeForcesHandle = userDict[discordServer][userID]
-    if userID not in ongoingDuels:
+
+    ongoing_duel = db.get_ongoing_duel(discord_server_id, user_id)
+    if ongoing_duel is None:
         await ctx.send("Error. User is not currently in a duel")
         return
-    #find completion times of both people
-    duel = ongoingDuels[userID]
-    user1 = userID
-    user2 = duel[0]
-    handle1 = userDict[discordServer][userID]
-    handle2 = userDict[discordServer][duel[0]]
-    print("duel[1]",duel[1])
-    time1 = await getEarliestSubmissionTime(handle1, duel[1])
-    time2 = await getEarliestSubmissionTime(handle2, duel[1])
-    print("time1",time1)
-    print("time2",time2)
 
-    #compare and print results
+    # Assume problem_id is stored in ongoing_duel
+    problem_id = ongoing_duel["problem_id"]
+
+    time1 = await getEarliestSubmissionTime(user_id, problem_id)
+    opponent_id = ongoing_duel["opponent_id"]
+    time2 = await getEarliestSubmissionTime(opponent_id, problem_id)
+
     if time1 == -1 and time2 == -1:
         await ctx.send("Neither user has completed the problem")
-        return
-
-    if time2 == -1:
-        await ctx.send(f'User <@{user1}> has beaten user <@{user2}>')
-    elif time1 == -1:
-        await ctx.send(f'User <@{user2}> has beaten user <@{user1}>')
-    elif time1 < time2:
-        await ctx.send(f'User <@{user1}> has beaten user <@{user2}>')
+    elif time2 == -1 or time1 < time2:
+        await ctx.send(f'User <@{user_id}> has beaten user <@{opponent_id}>')
     else:
-        await ctx.send(f'User <@{user2}> has beaten user <@{user1}>')
+        await ctx.send(f'User <@{opponent_id}> has beaten user <@{user_id}>')
 
-    del ongoingDuels[user1]
-    del ongoingDuels[user2]
+    # update duel status in the database ******** to do **********
+    db.update_duel_status(ongoing_duel["duel_id"], 'completed')
+
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     # getter for problem not seen for both users 
@@ -223,7 +176,11 @@ async def getEarliestSubmissionTime(handle, problem):
 
     return earliestTime
 
-
-
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 client.run(os.getenv('DISCORD_KEY'))
 #client.run must be bottom of all code...
+
+# note to run with database: 
+
+
+
