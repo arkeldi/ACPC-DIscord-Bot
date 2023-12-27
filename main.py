@@ -9,7 +9,7 @@ from database.db import BotDatabase #importing BotDatabase class from db.py
 load_dotenv() #load discord bot key from .env file
 
 #initialize bot 
-client = commands.Bot(command_prefix = ';', intents = discord.Intents.all()) 
+client = commands.Bot(command_prefix = ';', intents = discord.Intents.all(), help_command=None) 
 db = BotDatabase() #creating instance of BotDatabase class
 #give prefix bot listens in for, using ! as prefix, after ! is command
 
@@ -176,11 +176,38 @@ async def getEarliestSubmissionTime(handle, problem):
 
     return earliestTime
 
+
+#help command for users 
+@client.command()
+async def help(ctx):
+    help_command_message = """
+    **Bot Commands:**
+    `;register [codeforcesUsername]` - Register your Codeforces username with your Discord account
+    `;duel @user level` - Challenge another member to a duel with a Codeforces level
+    `;accept` - Accept the duel 
+    `;complete` - Duel as complete, check results, update winner
+
+    **Examples:**
+    - `;register myCodeforcesUsername`
+    - `;duel @User123 1500`
+    - `;accept`
+    - `;complete`
+
+    **Notes:**
+    - Make sure your Codeforces username is correct when registering
+    - Duel levels are between 800 and 3500, and divisible by 100
+    - Commands related to duels require both users to be registered
+    """
+    await ctx.send(help_command_message)
+
+
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 client.run(os.getenv('DISCORD_KEY'))
 #client.run must be bottom of all code...
 
 # note to run with database: 
+# run testDB.py to see if data is being stored in db
+# run python3 main.py to run bot
 
 
 
