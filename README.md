@@ -10,10 +10,18 @@ Some features include regsitration which syncs up with each user's Codeforces ac
 
 Command is ;
 
-- **Registration**:    ;[codeforceshandle]   Link Discord IDs with Codeforces handles
-- **Duel Challenges**:    ;@[otherMember] [codeForces level 800-3500, divisible by 100]   Challenge others to solve specific Codeforces problems
-- **Accepting Duels**:    ;accept   Accept challenges from other members
-- **Completing Duels**:     ;complete   Determine duel winners based on problem-solving time and/or submission
+- **Registration**:
+  ;[codeforceshandle]
+  Link Discord IDs with Codeforces handles
+- **Duel Challenges**:
+  ;@[otherMember] [codeForces level 800-3500, divisible by 100]
+  Challenge others to solve specific Codeforces problems
+- **Accepting Duels**:
+  ;accept
+  Accept challenges from other members
+- **Completing Duels**:
+  ;complete
+  Determine duel winners based on problem-solving time and/or submission
 
 ### Additional Functionalities
 
