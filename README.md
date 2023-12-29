@@ -48,7 +48,7 @@ Before launching the bot, it's important to set up the database:
 To launch the bot, use:
 
 ```bash
-python main.py
+python3 main.py
 ```
 
 
