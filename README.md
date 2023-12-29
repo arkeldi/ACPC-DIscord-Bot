@@ -37,10 +37,10 @@ Before launching the bot, it's important to set up the database:
    ```bash
    python3 init_db.py
 
-   ```bash
-   python3 testDB.py
+2. You can run testDB.py to run a quick simple test case to see if the database is working
 
-   You can run testDB.py to run a quick simple test case to see if the database is working
+  ```bash
+   python3 testDB.py
 
 ### Running the Bot
 
