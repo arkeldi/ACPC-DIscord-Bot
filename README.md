@@ -8,7 +8,7 @@ Some features include regsitration which syncs up with each user's Codeforces ac
 
 ### Main Features
 
-Command = ;
+Command is ;
 
 - **Registration**:    ;[codeforceshandle]   Link Discord IDs with Codeforces handles
 - **Duel Challenges**:    ;@[otherMember] [codeForces level 800-3500, divisible by 100]   Challenge others to solve specific Codeforces problems
