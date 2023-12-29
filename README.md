@@ -20,7 +20,7 @@ ACPC Discord Bot offers a variety of features, including user registration with 
 
 ### Environment Setup
 
-Create a `.env` file and fill in the necessary environment variables:
+Create a `.env` file and fill in the environment variable:
 
 - **DISCORD_KEY**: Your Discord bot token.
 
