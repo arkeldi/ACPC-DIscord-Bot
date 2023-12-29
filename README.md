@@ -20,13 +20,6 @@ ACPC Discord Bot offers a variety of features, including user registration with 
 
 ### Environment Setup
 
-Create a `.env` file and fill in the environment variable:
-
-- **DISCORD_KEY**: Your Discord bot token.
-
-
-### Environment Setup
-
 Before running the bot, you need to set up the environment:
 
 1. Create a `.env` file in the root directory of the project.
@@ -34,6 +27,20 @@ Before running the bot, you need to set up the environment:
    - **DISCORD_KEY**: Your Discord bot token. This token is essential for the bot to connect to the Discord API.
 
 The `.env` file is crucial as it stores sensitive information like your bot token securely.
+
+### Database Setup
+
+Before launching the bot, it's important to set up the database:
+
+1. Run `init_db.py` to initialize and configure the SQLite database. This script will create the necessary tables for storing user data and duel records.
+   
+   ```bash
+   python3 init_db.py
+
+   ```bash
+   python3 testDB.py
+
+   You can run testDB.py to run a quick simple test case to see if the database is working
 
 ### Running the Bot
 
