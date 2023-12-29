@@ -28,6 +28,7 @@ Before running the bot, you need to set up the environment:
 
 The `.env` file is crucial as it stores sensitive information like your bot token securely.
 
+
 ### Database Setup
 
 Before launching the bot, it's important to set up the database:
@@ -41,11 +42,13 @@ Before launching the bot, it's important to set up the database:
 
   ```bash
    python3 testDB.py
-
+```
 ### Running the Bot
 
 To launch the bot, use:
 
 ```bash
-python3 main.py
+python main.py
+   
+
 
