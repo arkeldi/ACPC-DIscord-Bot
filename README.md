@@ -49,6 +49,9 @@ To launch the bot, use:
 
 ```bash
 python main.py
+```
+
+
    
 
 
