@@ -88,13 +88,22 @@ async def duel(ctx, member: discord.Member, level: int): # example command: ;due
 
 
 @client.command()
-async def accept(ctx):
+async def accept(ctx, challenger: discord.Member=None):
     opponentID = str(ctx.author.id) #get discord id of opponent, see if there is ongoing duel in the server
+    discordServer = str(ctx.guild.id)
     
-    duel_challenge = db.get_duel_challenge(str(ctx.guild.id), opponentID)
-    if duel_challenge is None:
-        await ctx.send("Challenge not found")
-        return
+    # if challenger is specified, @user, after ;accept, then get specific duel challenge,else go to last duel challenge
+    if challenger:
+        duel_challenge = db.get_specific_duel_challenge(discordServer, str(challenger.id), opponentID)
+        if duel_challenge is None:
+            await ctx.send(f"No duel challenge found from {challenger.mention}.")
+            return
+    else:
+        duel_challenge = db.get_latest_duel_challenge(discordServer, opponentID)
+        if duel_challenge is None:
+            await ctx.send("No duel challenge found.")
+            return
+
     # update duel status to accepted
     db.update_duel_status(duel_challenge['duel_id'], 'accepted')
 
@@ -211,13 +220,13 @@ async def help(ctx):
     **Bot Commands:**
     `;register [codeforcesUsername]` - Register your Codeforces username with your Discord account
     `;duel @user level` - Challenge another member to a duel with a Codeforces level
-    `;accept` - Accept the duel 
+    `;accept` - Accept the duel, you can @ the challenger to accept their duel if there are multiple initiated duels
     `;complete` - Duel as complete, check results, update winner
 
     **Examples:**
     - `;register myCodeforcesUsername`
     - `;duel @User123 1500`
-    - `;accept`
+    - `;accept @user 
     - `;complete`
 
     **Notes:**

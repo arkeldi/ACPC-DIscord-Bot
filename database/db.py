@@ -66,6 +66,27 @@ class BotDatabase:
             WHERE discord_server_id = ? AND challengee_id = ? AND status = 'pending'
         ''', (discord_server_id, challengee_id))
         return cursor.fetchone()
+   
+    def get_specific_duel_challenge(self, discord_server_id, challenger_id, challengee_id):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM duel_challenges
+            WHERE discord_server_id = ? AND challenger_id = ? AND challengee_id = ? AND status = 'pending'
+            ORDER BY duel_id DESC
+        ''', (discord_server_id, challenger_id, challengee_id))
+        return cursor.fetchone()
+    
+    def get_latest_duel_challenge(self, discord_server_id, challengee_id):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM duel_challenges
+            WHERE discord_server_id = ? AND challengee_id = ? AND status = 'pending'
+            ORDER BY duel_id DESC
+            LIMIT 1
+        ''', (discord_server_id, challengee_id))
+        return cursor.fetchone()
+
+
 
     def close(self):
         self.conn.close()
