@@ -1,4 +1,4 @@
-# ACPC Discord Bot
+# ACPC Discord Duel Bot
 
 ACPC Discord Duel Bot is a Discord bot designed to allow members to engage in a friendly coding competition game
 
