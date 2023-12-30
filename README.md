@@ -17,8 +17,9 @@ Command is ;
   ;@[otherMember] [codeForces level 800-3500, divisible by 100]
   Challenge others to solve specific Codeforces problems
 - **Accepting Duels**:
-  ;accept
+  ;accept @specificUser
   Accept challenges from other members
+  Can @specific user initiated duel, to account for multiple duels initiated
 - **Completing Duels**:
   ;complete
   Determine duel winners based on problem-solving time and/or submission
