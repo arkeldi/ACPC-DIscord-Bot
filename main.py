@@ -11,13 +11,18 @@ load_dotenv() #load discord bot key from .env file
 #initialize bot 
 client = commands.Bot(command_prefix = ';', intents = discord.Intents.all(), help_command=None) 
 db = BotDatabase() #creating instance of BotDatabase class
-#give prefix bot listens in for, using ! as prefix, after ! is command
+#give prefix bot listens in for, using ; as prefix, after ; is command
 
 @client.event
 async def on_ready(): #when bot is ready to recieve commands
     print("Bot is ready") #user wont see this we will in terminal 
     print("------------------") #seperate for clarity 
 
+#@client.event
+#async def on_disconnect():
+    # close when bot disconnects 
+#    db.close()
+#    print("Database connection closed.")
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -29,43 +34,56 @@ async def register(ctx, codeforces_handle: str):
     if not verifyCodeforcesHandle(codeforces_handle):
         await ctx.send("Incorrect Codeforces Username, check again silly goose")
         return
+    
     db.register_user(ctx.guild.id, ctx.author.id, codeforces_handle) #adding this data to database, user_registrations table
     await ctx.send(f"You have registered {codeforces_handle} with {ctx.author.mention}")
 
 
 # making api call to codeforces to verify handle
+#added error handling
 def verifyCodeforcesHandle(codeforces_handle):
-    response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
-    if response.status_code == 200:
-        return True 
-    else:
-        return False 
+    try:
+        response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
+        if response.status_code == 200:
+            return True 
+    except requests.RequestException as e:
+        print(f"API request error: {e}")
+    return False 
+
 
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#Error handling 
+
+@client.event
+async def on_command_error(ctx, error):
+    # irgnore command not found errors
+    if isinstance(error, commands.CommandNotFound):
+        return
+    await ctx.send(f"Oops, something went wrong: {error}. Make sure you are using the correct command: ;duel @user level")
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 @client.command()
-async def duel(ctx, member: discord.Member, level: int): # example command: !duel @user 1500, spaces are not sensitive, i think 
+async def duel(ctx, member: discord.Member, level: int): # example command: ;duel @user 1500, spaces are not sensitive, i think 
     
     if not 800 <= level <= 3500 or level % 100 != 0:
         await ctx.send("Invalid problem difficulty >.<")
+        return
+    
+    if member is None or level is None:
+        await ctx.send("provide a user and level. example: `;duel @user [level]`")
         return
 
     challenger = str(ctx.author.id) #get discord id of challenger
     opponent = str(member.id) #get discord id of opponent
     discordServer = str(ctx.guild.id) #get discord server id
 
-    if not db.is_user_registered(challenger) or not db.is_user_registered(opponent):
-        await ctx.send("Error. One or more users are not registered")
-        return
-
     #adding duel in db 
     db.create_duel_challenge(discordServer, challenger, opponent, level) #create duel challenge in database
-    await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type !accept to accept the challenge... if you dare.")
+    await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type ;accept to accept the challenge... if you dare.")
 
 
 
@@ -79,7 +97,15 @@ async def accept(ctx):
         return
     # update duel status to accepted
     db.update_duel_status(duel_challenge['duel_id'], 'accepted')
-    await ctx.send(f" The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
+
+    
+    problem_url, _ = await getConstraintedProblems(duel_challenge['problem_level'], duel_challenge['challenger_id'], duel_challenge['challengee_id'])
+    if problem_url:
+        await ctx.send(f"Duel problem: {problem_url}. Solve this problem to win the duel!")
+    else:
+        await ctx.send("Could not find a suitable problem.")
+
+    await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
 
 
 
@@ -140,23 +166,24 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem
 
 
-async def getProblemNotSeen(handle): #getting problem unseen by each user
-    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1" #url specific to user
-    response = requests.get(url)
-    if response.status_code != 200:
-        return None
+async def getProblemNotSeen(handle): #get unseen problem from each user
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data["status"] == "OK":
+                problems = set()
+                for submission in data["result"]:
+                    if submission["verdict"] == "OK":
+                        problem = submission["problem"]
+                        problems.add((problem["contestId"], problem["index"]))
+                return problems
+    except requests.RequestException as e:
+        print(f"Error fetching problems: {e}")
 
-    data = response.json()
-    if data["status"] != "OK":
-        return None
+    return set()  # Return an empty set if there are no problems or in case of errors
 
-    problems = set()
-    for submission in data["result"]:
-        if submission["verdict"] == "OK":
-            problem = submission["problem"]
-            problems.add((problem["contestId"], problem["index"]))
-
-    return problems
 
 async def getEarliestSubmissionTime(handle, problem):
     earliestTime = -1
@@ -200,6 +227,14 @@ async def help(ctx):
     """
     await ctx.send(help_command_message)
 
+#database error handling
+def database_error():
+    try:
+        db.some_database_operation()
+    except SomeDatabaseException as e:
+        print(f"Database error: {e}")
+        return False
+    return True
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 client.run(os.getenv('DISCORD_KEY'))
