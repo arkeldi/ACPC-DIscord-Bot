@@ -5,6 +5,7 @@ import os
 import requests
 import random 
 from database.db import BotDatabase #importing BotDatabase class from db.py
+import json
 
 load_dotenv() #load discord bot key from .env file
 
@@ -18,11 +19,12 @@ async def on_ready(): #when bot is ready to recieve commands
     print("Bot is ready") #user wont see this we will in terminal 
     print("------------------") #seperate for clarity 
 
-#@client.event
-#async def on_disconnect():
+@client.event
+async def on_disconnect():
     # close when bot disconnects 
-#    db.close()
-#    print("Database connection closed.")
+    db.close()
+    print("Database connection closed.")
+
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -54,7 +56,7 @@ def verifyCodeforcesHandle(codeforces_handle):
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#Error handling 
+#error handling/message
 
 @client.event
 async def on_command_error(ctx, error):
@@ -81,16 +83,13 @@ async def duel(ctx, member: discord.Member, level: int):
     challengee_id = str(member.id)
     discord_server_id = str(ctx.guild.id)
 
-    # Fetch Codeforces handles from the database
     challenger_handle = db.get_codeforces_handle(discord_server_id, challenger_id)
     challengee_handle = db.get_codeforces_handle(discord_server_id, challengee_id)
 
-    # Check if both users are registered
     if not challenger_handle or not challengee_handle:
         await ctx.send("Both users need to be registered with their Codeforces handles.")
         return
 
-    # Get a constrained problem
     problem_info = await getConstraintedProblems(level, challenger_handle, challengee_handle)
     
     if problem_info is None:
@@ -99,7 +98,6 @@ async def duel(ctx, member: discord.Member, level: int):
 
     problem_url, problem_id = problem_info
 
-    # Create the duel challenge in the database
     db.create_duel_challenge(discord_server_id, challenger_id, challengee_id, level, problem_id)
     await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type ;accept to accept the challenge... if you dare.")
 
@@ -109,7 +107,7 @@ async def accept(ctx, challenger: discord.Member=None):
     opponent_id = str(ctx.author.id)  # Get discord id of opponent
     discord_server_id = str(ctx.guild.id)
 
-    # If challenger is specified, get specific duel challenge, else go to last duel challenge
+    #added @specificUser, if multipel duels are created 
     if challenger:
         duel_challenge = db.get_specific_duel_challenge(discord_server_id, str(challenger.id), opponent_id)
         if duel_challenge is None:
@@ -121,16 +119,13 @@ async def accept(ctx, challenger: discord.Member=None):
             await ctx.send("No duel challenge found.")
             return
 
-    # Update duel status to accepted
     db.update_duel_status(duel_challenge['duel_id'], 'accepted')
 
-    # Extract contestId and index from problem_id
     contest_id, index = duel_challenge['problem_id'][:-1], duel_challenge['problem_id'][-1]
     problem_url = f"https://codeforces.com/problemset/problem/{contest_id}/{index}"
 
     await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
     await ctx.send(f"Problem: {problem_url}")
-
 
 
 @client.command()
@@ -151,9 +146,6 @@ async def complete(ctx):
         await ctx.send("This duel has already been finished. Start another duel to play again.")
         return
 
-    # fetch Codeforces handles for both users from the database
-
-    # fetch Codeforces handles for both users from the database
     user_handle = db.get_codeforces_handle(discord_server_id, discord_user_id)
     opponent_id = ongoing_duel["challengee_id"] if ongoing_duel["challenger_id"] == discord_user_id else ongoing_duel["challenger_id"]
     opponent_handle = db.get_codeforces_handle(discord_server_id, opponent_id)
@@ -161,6 +153,7 @@ async def complete(ctx):
     # get problem id from duel 
     problem_id = ongoing_duel["problem_id"]
 
+    #allow codeforces api to check for submissions
     time1 = await getEarliestSubmissionTime(user_handle, problem_id)
     time2 = await getEarliestSubmissionTime(opponent_handle, problem_id)
 
@@ -180,31 +173,25 @@ async def complete(ctx):
         await ctx.send("Unable to determine the winner.")
         return
 
-    # update duel status in the database 
     db.update_duel_status(ongoing_duel["duel_id"], 'complete')
 
-    # announce the winner
     winner_discord_user = await ctx.guild.fetch_member(int(winner_id))
     await ctx.send(f'{winner_discord_user.mention} has won the duel! Yeaaaaa boiiiiiiiii')
 
 
-
-
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
-    # Get problems not seen by both users
-    challengerProblems = await getProblemNotSeen(challengerHandle)
+    challengerProblems = await getSolvedProblems(challengerHandle)
     if challengerProblems is None:
         print(f"Failed to fetch problems for challenger handle: {challengerHandle}")
         return None
 
-    opponentProblems = await getProblemNotSeen(opponentHandle)
+    opponentProblems = await getSolvedProblems(opponentHandle)
     if opponentProblems is None:
         print(f"Failed to fetch problems for opponent handle: {opponentHandle}")
         return None
 
     combinedProblems = challengerProblems.union(opponentProblems)
 
-    # Get all problems from the Codeforces API
     response = requests.get("https://codeforces.com/api/problemset.problems")
     if response.status_code != 200:
         print("Failed to fetch problems from Codeforces API")
@@ -215,7 +202,6 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
         print("Error in response from Codeforces API")
         return None
 
-    # Filter problems based on level and whether they have been seen by both users
     problems = data["result"]["problems"]
     eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == level and (p["contestId"], p["index"]) not in combinedProblems]
 
@@ -223,20 +209,25 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
         print("No eligible problems found")
         return None
 
-    # Randomly select a problem from the eligible list
     problem = random.choice(eligibleProblems)
     problem_id = f"{problem['contestId']}{problem['index']}"
     return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem_id
 
 
+#what the func above is doing: 
+#1. get problems solved by challenger, calling get solved problem func
+#2. get problems solved by opponent, calling get solved problem func
+#3. combine problems solved by challenger and opponent
+#4. get all problems from codeforces api
+#5. filter problems by level and NOT solved by challenger or opponent
+#6. pick a random problem from the filtered list
+#7. return url and problem id
 
-#this is not working
-#
 
-async def getProblemNotSeen(handle): 
+async def getSolvedProblems(handle): 
     if not handle or not isinstance(handle, str):
         print("Invalid handle provided.")
-        return None  # Return None for invalid handle
+        return None 
 
     url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
     print(f"Requesting URL: {url}")
@@ -251,13 +242,16 @@ async def getProblemNotSeen(handle):
                     if submission["verdict"] == "OK":
                         problem = submission["problem"]
                         problems.add((problem["contestId"], problem["index"]))
+                print(f"Found {len(problems)} problems solved by {handle}")
                 return problems
             else:
                 print(f"User handle not found or other API issue: {data['comment']}")
-                return None  # Return None if the user handle is not found
+                return None  
         else:
             print(f"API request failed with status code: {response.status_code}")
-            return None  # Return None for failed API requests
+            if response.content:
+                print(f"Response Content: {response.content}")
+            return None  
     except requests.RequestException as e:
         print(f"Error fetching problems: {e}")
         return None
@@ -266,26 +260,6 @@ async def getProblemNotSeen(handle):
         return None
 
 
-
-#async def getEarliestSubmissionTime(handle, problem):
-#    earliestTime = -1
-#    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
-#    response = requests.get(url)
-#    if response.status_code != 200:
-#        return -1
-#    
-#    data = response.json()
-#    if data["status"] != "OK":
-#        return -1
-
-#    for submission in data["result"]:
-#        if submission["verdict"] == "OK" and submission["problem"] == problem: # correct problem
-#            if earliestTime == -1 or earliestTime != -1 and submission["creationTimeSeconds"] < earliestTime: # better time
-#                earliestTime = submission["creationTimeSeconds"]
-
-#    return earliestTime
-    
-#submission["problem"] is a dictionary containing details about the problem, while problem is a string representing the problem ID.
 import re
 async def getEarliestSubmissionTime(handle, problem_id):
     earliest_time = -1
@@ -298,7 +272,7 @@ async def getEarliestSubmissionTime(handle, problem_id):
     if data["status"] != "OK":
         return -1
 
-    # Use regular expression to separate contestId and index
+
     match = re.match(r"(\d+)([A-Za-z]+)", problem_id)
     if match:
         contest_id, index = match.groups()
@@ -309,7 +283,7 @@ async def getEarliestSubmissionTime(handle, problem_id):
 
     for submission in data["result"]:
         problem = submission.get("problem", {})
-        # Debugging: Print values to check if they match
+        # debugging
         print(f"Checking problem {problem.get('contestId')} - {problem.get('index')} against {contest_id} - {index}")
         if submission.get("verdict") == "OK" and problem.get("contestId") == int(contest_id) and problem.get("index") == index:
             creation_time = submission.get("creationTimeSeconds", -1)
@@ -318,8 +292,6 @@ async def getEarliestSubmissionTime(handle, problem_id):
                 earliest_time = creation_time
 
     return earliest_time
-
-
 
 
 #help command for users 
