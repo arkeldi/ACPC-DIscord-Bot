@@ -8,14 +8,6 @@ def init_db():
     cursor = conn.cursor()
 
     # SQL command to create table for user registrations
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_registrations (
-            discord_server_id TEXT,
-            discord_user_id TEXT PRIMARY KEY,
-            codeforces_handle TEXT NOT NULL,
-            UNIQUE(discord_server_id, discord_user_id)
-        );
-    ''')
 
     # SQL command to create table for duel challenges
     cursor.execute('''
@@ -31,6 +23,25 @@ def init_db():
             FOREIGN KEY (challengee_id) REFERENCES user_registrations(discord_user_id)
         );
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS verified_users (
+            discord_user_id TEXT PRIMARY KEY,
+            discord_server_id TEXT,
+            codeforces_handle TEXT NOT NULL,
+            problem_id TEXT 
+        );
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS verification_process (
+            discord_user_id TEXT PRIMARY KEY,
+            discord_server_id TEXT,
+            codeforces_handle TEXT NOT NULL,
+            problem_id TEXT
+        );
+     ''')
+
+
 
     # commit and close
     conn.commit()

@@ -6,6 +6,7 @@ import requests
 import random 
 from database.db import BotDatabase #importing BotDatabase class from db.py
 import json
+import time
 
 load_dotenv() #load discord bot key from .env file
 
@@ -34,15 +35,137 @@ async def on_disconnect():
 @client.command() # register command: !register codeforcesUsername, linking discord id to codeforces handle while in the right guild aka server
 async def register(ctx, codeforces_handle: str):
     if not verifyCodeforcesHandle(codeforces_handle):
-        await ctx.send("Incorrect Codeforces Username, check again silly goose")
+        await ctx.send("That's not a codeforces username, trust me, i checked via api call xD")
         return
     
-    db.register_user(ctx.guild.id, ctx.author.id, codeforces_handle) #adding this data to database, user_registrations table
-    await ctx.send(f"You have registered {codeforces_handle} with {ctx.author.mention}")
+    discord_server_id = str(ctx.guild.id)
+    discord_user_id = str(ctx.author.id)
+    
+    # check if the user is already registered or in the process of verification
+    if db.is_verification_initiated(discord_user_id) or db.is_user_registered(discord_user_id):
+        await ctx.send("You are already registered or in the process of verification.")
+        return
+
+    # get a problem for verification
+    problem_url, problem_id = await getConstraintedProblemsForVerification(codeforces_handle)
+    if not problem_url:
+        await ctx.send("Failed to find a suitable problem for verification.")
+        return
+
+    # initiate the verification in the database
+    db.initiate_verification(discord_server_id, discord_user_id, codeforces_handle, problem_id)
+
+    # instruct the user
+    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `;complete_verification`.")
+
+@client.command()
+async def complete_verification(ctx):
+    discord_user_id = str(ctx.author.id)
+
+    # check if the user is in the process of verification
+    if not db.is_verification_initiated(discord_user_id):
+        await ctx.send("You have not initiated a verification process.")
+        return
+
+    # get verification details
+    codeforces_handle, problem_id = db.get_verification_details(discord_user_id)
+    if not codeforces_handle:
+        await ctx.send("Verification details not found.")
+        return
+
+    # verify the submission via api 
+    if check_compilation_error_submission(codeforces_handle, problem_id):
+        db.complete_verification(discord_user_id)
+        await ctx.send(f"Verification successful! Your Codeforces account {codeforces_handle} has been linked with {ctx.author.mention}.")
+    else:
+        await ctx.send("Verification failed. Please ensure you have submitted a compilation/runtime/wrong answer error for the specified problem.")
+
+
+
+def check_compilation_error_submission(handle, problem_id):
+    """
+    this checks if the Ccdeforces user handle has made a recent submission, within 5 min 
+    with a compilation/wrong/answer error for the specified problem.
+
+    :paramater handle: codeforces handle of user.
+    :paramater problem_id: The ID of the problem to check submissions for, just good to keep track of 
+    :return: true if a error submission is found, false otherwise
+    """
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
+    try:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f"API request failed with status code: {response.status_code}")
+            return False
+
+        data = response.json()
+        if data["status"] != "OK":
+            print("Error in response from Codeforces API")
+            return False
+
+        # get contest ID and index from problem_id
+        if '-' in problem_id:
+            contest_id, index = problem_id.split('-')
+        else:
+            match = re.match(r"(\d+)([A-Za-z]+)", problem_id)
+            if match:
+                contest_id, index = match.groups()
+            else:
+                print(f"Invalid problem_id format: {problem_id}")
+                return False
+
+        # checking via api call here 
+        for submission in data["result"]:
+            if (str(submission["problem"]["contestId"]) == contest_id and
+                submission["problem"]["index"] == index and
+                (submission["verdict"] == "COMPILATION_ERROR" or submission["verdict"] == "RUNTIME_ERROR" or submission["verdict"] == "WRONG_ANSWER")):
+
+                # submission was made recently, adding xtra layer (e.g., within the last 24 hours)
+                if time.time() - submission["creationTimeSeconds"] < 300:
+                    return True
+
+        return False
+    
+    except requests.RequestException as e:
+        print(f"Error fetching problems: {e}")
+        return False
+
+
+
+async def getConstraintedProblemsForVerification(codeforces_handle):
+    userProblems = await getSolvedProblems(codeforces_handle)
+    if userProblems is None:
+        print(f"Failed to fetch problems for user handle: {codeforces_handle}")
+        return None
+
+    response = requests.get("https://codeforces.com/api/problemset.problems")
+    if response.status_code != 200:
+        print("Failed to fetch problems from Codeforces API")
+        return None
+
+    data = response.json()
+    if data["status"] != "OK":
+        print("Error in response from Codeforces API")
+        return None
+
+    problems = data["result"]["problems"]
+    eligibleProblems = [p for p in problems if "rating" in p and (p["contestId"], p["index"]) not in userProblems]
+
+    if not eligibleProblems:
+        print("No eligible problems found")
+        return None
+
+    problem = random.choice(eligibleProblems)
+    contest_id = problem['contestId']
+    index = problem['index']
+    problem_url = f"https://codeforces.com/problemset/problem/{contest_id}/{index}"
+
+    return problem_url, f"{contest_id}{index}"
+
 
 
 # making api call to codeforces to verify handle
-#added error handling
+#added error handling, just in case for fails 
 def verifyCodeforcesHandle(codeforces_handle):
     try:
         response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
@@ -51,8 +174,6 @@ def verifyCodeforcesHandle(codeforces_handle):
     except requests.RequestException as e:
         print(f"API request error: {e}")
     return False 
-
-
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -263,7 +384,7 @@ async def getSolvedProblems(handle):
 import re
 async def getEarliestSubmissionTime(handle, problem_id):
     earliest_time = -1
-    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=100"
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30" #count=50, only look at last,recent 30 submissions
     response = requests.get(url)
     if response.status_code != 200:
         return -1

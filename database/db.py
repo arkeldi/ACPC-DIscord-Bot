@@ -9,25 +9,12 @@ class BotDatabase:
         self.conn = sqlite3.connect(db_file)
         self.conn.row_factory = sqlite3.Row
 
-    def register_user(self, discord_server_id, discord_user_id, codeforces_handle):
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute('''
-                INSERT INTO user_registrations (discord_server_id, discord_user_id, codeforces_handle)
-                VALUES (?, ?, ?)
-                ON CONFLICT(discord_user_id) DO UPDATE SET codeforces_handle = excluded.codeforces_handle
-            ''', (discord_server_id, discord_user_id, codeforces_handle))
-        
-            self.conn.commit()
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-        # error
     
     def get_codeforces_handle(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                SELECT codeforces_handle FROM user_registrations
+                SELECT codeforces_handle FROM verified_users
                 WHERE discord_server_id = ? AND discord_user_id = ?
             ''', (discord_server_id, discord_user_id))
             row = cursor.fetchone()
@@ -35,11 +22,97 @@ class BotDatabase:
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             return None
+    
+    #start verification 
+    def initiate_verification(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO verification_process (discord_user_id, discord_server_id, codeforces_handle, problem_id)
+                VALUES (?, ?, ?, ?)
+            ''', (discord_user_id, discord_server_id, codeforces_handle, problem_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during verification initiation: {e}")
+
+    
+    def is_verification_initiated(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT * FROM verification_process WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            return cursor.fetchone() is not None
+        except sqlite3.Error as e:
+            print(f"Database error during verification check: {e}")
+            return False
+
+    def get_verification_details(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT codeforces_handle, problem_id FROM verification_process WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            return cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Database error during fetching verification details: {e}")
+            return None, None
+    
+    def complete_verification(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            # Retrieve verification details
+            cursor.execute('''
+                SELECT discord_server_id, codeforces_handle, problem_id FROM verification_process WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            row = cursor.fetchone()
+            if row:
+                # Register the user
+                self.register_user(row[0], discord_user_id, row[1], row[2])
+                # Delete the record from verification_process
+                cursor.execute('''
+                    DELETE FROM verification_process WHERE discord_user_id = ?
+                ''', (discord_user_id,))
+                self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during completion of verification: {e}")
+
+
+    
+    
+    def register_user(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO verified_users (discord_server_id, discord_user_id, codeforces_handle, problem_id)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(discord_user_id) DO UPDATE SET 
+                codeforces_handle = excluded.codeforces_handle,
+                problem_id = excluded.problem_id
+            ''', (discord_server_id, discord_user_id, codeforces_handle, problem_id))
+        
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     def is_user_registered(self, discord_user_id):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM user_registrations WHERE discord_user_id = ?', (discord_user_id,))
+        cursor.execute('SELECT * FROM verified_users WHERE discord_user_id = ?', (discord_user_id,))
         return cursor.fetchone() is not None
 
 
