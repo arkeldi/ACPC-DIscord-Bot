@@ -4,7 +4,7 @@ ACPC Discord Duel Bot is a Discord bot designed to allow members to engage in a 
 
 ## Features
 
-Some features include regsitration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
+Some features include 2-step regsitration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
 
 ### Main Features
 
@@ -13,6 +13,10 @@ Command is ;
 - **Registration**:
   ;[codeforceshandle]
   Link Discord IDs with Codeforces handles
+  Bot gives a Codeforces problem link, asks user to submit a file that gives an error
+- **Complete Registration**:
+  If the user who initiated registration (discord link to Codeforces) successfully submits 
+  API check to verify user has completed registration
 - **Duel Challenges**:
   ;@[otherMember] [codeForces level 800-3500, divisible by 100]
   Challenge others to solve specific Codeforces problems
@@ -26,7 +30,7 @@ Command is ;
 
 ### Additional Functionalities
 
-- **Help Command**: Provides a guide on using the bot's commands
+- **Help Command**: Provides a guide on using all the bot's commands and instructions
 - **Database Integration**: Manages user data and duel records using SQLite
 
 ### Environment Setup
