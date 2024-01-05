@@ -11,21 +11,22 @@ Some features include 2-step regsitration which syncs up with each user's Codefo
 Command is ;
 
 - **Registration**:
-  ;[codeforceshandle]
+  ![codeforceshandle]
   Link Discord IDs with Codeforces handles
   Bot gives a Codeforces problem link, asks user to submit a file that gives an error
 - **Complete Registration**:
+  ![complete_verification]
   If the user who initiated registration (discord link to Codeforces) successfully submits 
   API check to verify user has completed registration
 - **Duel Challenges**:
-  ;@[otherMember] [codeForces level 800-3500, divisible by 100]
+  ![duel] @[otherMember] [codeForces level 800-3500, divisible by 100]
   Challenge others to solve specific Codeforces problems
 - **Accepting Duels**:
-  ;accept @specificUser
+  ![accept @specificUser]
   Accept challenges from other members
   Can @specific user initiated duel, to account for multiple duels initiated
 - **Completing Duels**:
-  ;complete
+  ![complete]
   Determine duel winners based on problem-solving time and/or submission
 
 ### Additional Functionalities
