@@ -10,7 +10,7 @@ I incoroparted the backend workflow of the register command in a series of steps
 When a user tried to !register their DiscordID with their Codeforces handle, this info is temporarily stored into the verification_process SQL table. 
 Then, if the user successfully completes the 2-step verification process, their information which was temporarily stored, 
 Is then pushed into the verified_users table. 
-This way, error and test case handling are extremely robust.
+This way, error and test case handling are extremely robust; duplicate calls are handled well because of the backend workflow.
 
 Similarly, the workflow of the dueling works in these steps: 
 Registered users initiate a duel, ex. !duel @otherUser 800, this duel is now in the database with a 'pending' tag
