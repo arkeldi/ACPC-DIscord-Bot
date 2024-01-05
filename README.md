@@ -60,7 +60,7 @@ Before launching the bot, it's important to set up the database:
 ```
 
 
-[Database Schema](https://app.quickdatabasediagrams.com/#/d/mg7bUy)
+[Database Schema](/Users/arkeldi/Desktop/DBscheme.png)
 
 
 ### Running the Bot
