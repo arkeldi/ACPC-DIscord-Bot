@@ -60,7 +60,7 @@ Before launching the bot, it's important to set up the database:
 ```
 
 
-[Database Schema](/Users/arkeldi/Desktop/DBscheme.png)
+[Database Schema](images/DBscheme.png)
 
 
 ### Running the Bot
