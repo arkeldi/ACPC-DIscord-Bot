@@ -58,6 +58,11 @@ Before launching the bot, it's important to set up the database:
   ```bash
    python3 testDB.py
 ```
+
+
+[Database Schema](https://app.quickdatabasediagrams.com/#/d/mg7bUy)
+
+
 ### Running the Bot
 
 To launch the bot, use:
