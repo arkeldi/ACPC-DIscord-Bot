@@ -59,9 +59,8 @@ Before launching the bot, it's important to set up the database:
    python3 testDB.py
 ```
 
-
-[Database Schema](images/DBscheme.png)
-
+[Database Schema]
+DBscheme.png, file in the GitHub repo, is a diagram that shows the relationships between the database table
 
 ### Running the Bot
 
