@@ -4,12 +4,8 @@ def init_db():
     # connect to the SQLite database
     conn = sqlite3.connect('/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db')
 
-    # create cursor object to execute SQL commands
     cursor = conn.cursor()
 
-    # SQL command to create table for user registrations
-
-    # SQL command to create table for duel challenges
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS duel_challenges ( 
             duel_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,8 +15,8 @@ def init_db():
             problem_level INTEGER,
             status TEXT,
             problem_id TEXT,  
-            FOREIGN KEY (challenger_id) REFERENCES user_registrations(discord_user_id),
-            FOREIGN KEY (challengee_id) REFERENCES user_registrations(discord_user_id)
+            FOREIGN KEY (challenger_id) REFERENCES verified_users (discord_user_id),
+            FOREIGN KEY (challengee_id) REFERENCES verified_users (discord_user_id)
         );
     ''')
 
@@ -32,6 +28,7 @@ def init_db():
             problem_id TEXT 
         );
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verification_process (
             discord_user_id TEXT PRIMARY KEY,
@@ -41,13 +38,9 @@ def init_db():
         );
      ''')
 
-
-
     # commit and close
     conn.commit()
     conn.close()
 
 if __name__ == '__main__':
     init_db()
-
-#sqlite3 /Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db

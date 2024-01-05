@@ -11,14 +11,13 @@ import time
 load_dotenv() #load discord bot key from .env file
 
 #initialize bot 
-client = commands.Bot(command_prefix = ';', intents = discord.Intents.all(), help_command=None) 
-db = BotDatabase() #creating instance of BotDatabase class
-#give prefix bot listens in for, using ; as prefix, after ; is command
+client = commands.Bot(command_prefix = '!', intents = discord.Intents.all(), help_command=None) 
+db = BotDatabase() #create instance of BotDatabase class
 
 @client.event
-async def on_ready(): #when bot is ready to recieve commands
-    print("Bot is ready") #user wont see this we will in terminal 
-    print("------------------") #seperate for clarity 
+async def on_ready(): 
+    print("Bot is ready") 
+    print("------------------") 
 
 @client.event
 async def on_disconnect():
@@ -26,13 +25,23 @@ async def on_disconnect():
     db.close()
     print("Database connection closed.")
 
+
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+#error handling/message
+
+@client.event
+async def on_command_error(ctx, error):
+    # irgnore command not found errors
+    if isinstance(error, commands.CommandNotFound):
+        return
+    await ctx.send(f"Oops, something went wrong: {error}.")
+
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-#**** note *****
-#using discord id's, ctx.author.id and member.id, remain the same regardless of username changes
 
-@client.command() # register command: !register codeforcesUsername, linking discord id to codeforces handle while in the right guild aka server
+@client.command() 
 async def register(ctx, codeforces_handle: str):
     if not verifyCodeforcesHandle(codeforces_handle):
         await ctx.send("That's not a codeforces username, trust me, i checked via api call xD")
@@ -41,45 +50,38 @@ async def register(ctx, codeforces_handle: str):
     discord_server_id = str(ctx.guild.id)
     discord_user_id = str(ctx.author.id)
     
-    # check if the user is already registered or in the process of verification
     if db.is_verification_initiated(discord_user_id) or db.is_user_registered(discord_user_id):
         await ctx.send("You are already registered or in the process of verification.")
         return
 
-    # get a problem for verification
     problem_url, problem_id = await getConstraintedProblemsForVerification(codeforces_handle)
     if not problem_url:
         await ctx.send("Failed to find a suitable problem for verification.")
         return
 
-    # initiate the verification in the database
     db.initiate_verification(discord_server_id, discord_user_id, codeforces_handle, problem_id)
 
-    # instruct the user
     await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `;complete_verification`.")
+
 
 @client.command()
 async def complete_verification(ctx):
     discord_user_id = str(ctx.author.id)
 
-    # check if the user is in the process of verification
     if not db.is_verification_initiated(discord_user_id):
         await ctx.send("You have not initiated a verification process.")
         return
 
-    # get verification details
     codeforces_handle, problem_id = db.get_verification_details(discord_user_id)
     if not codeforces_handle:
         await ctx.send("Verification details not found.")
         return
 
-    # verify the submission via api 
     if check_compilation_error_submission(codeforces_handle, problem_id):
         db.complete_verification(discord_user_id)
         await ctx.send(f"Verification successful! Your Codeforces account {codeforces_handle} has been linked with {ctx.author.mention}.")
     else:
         await ctx.send("Verification failed. Please ensure you have submitted a compilation/runtime/wrong answer error for the specified problem.")
-
 
 
 def check_compilation_error_submission(handle, problem_id):
@@ -103,7 +105,7 @@ def check_compilation_error_submission(handle, problem_id):
             print("Error in response from Codeforces API")
             return False
 
-        # get contest ID and index from problem_id
+        # parsing problem_id
         if '-' in problem_id:
             contest_id, index = problem_id.split('-')
         else:
@@ -113,23 +115,18 @@ def check_compilation_error_submission(handle, problem_id):
             else:
                 print(f"Invalid problem_id format: {problem_id}")
                 return False
-
-        # checking via api call here 
+            
         for submission in data["result"]:
             if (str(submission["problem"]["contestId"]) == contest_id and
                 submission["problem"]["index"] == index and
                 (submission["verdict"] == "COMPILATION_ERROR" or submission["verdict"] == "RUNTIME_ERROR" or submission["verdict"] == "WRONG_ANSWER")):
 
-                # submission was made recently, adding xtra layer (e.g., within the last 24 hours)
                 if time.time() - submission["creationTimeSeconds"] < 300:
                     return True
-
         return False
-    
     except requests.RequestException as e:
         print(f"Error fetching problems: {e}")
         return False
-
 
 
 async def getConstraintedProblemsForVerification(codeforces_handle):
@@ -163,9 +160,6 @@ async def getConstraintedProblemsForVerification(codeforces_handle):
     return problem_url, f"{contest_id}{index}"
 
 
-
-# making api call to codeforces to verify handle
-#added error handling, just in case for fails 
 def verifyCodeforcesHandle(codeforces_handle):
     try:
         response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
@@ -174,20 +168,6 @@ def verifyCodeforcesHandle(codeforces_handle):
     except requests.RequestException as e:
         print(f"API request error: {e}")
     return False 
-
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#error handling/message
-
-@client.event
-async def on_command_error(ctx, error):
-    # irgnore command not found errors
-    if isinstance(error, commands.CommandNotFound):
-        return
-    await ctx.send(f"Oops, something went wrong: {error}.")
-
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 
 @client.command()
@@ -384,7 +364,7 @@ async def getSolvedProblems(handle):
 import re
 async def getEarliestSubmissionTime(handle, problem_id):
     earliest_time = -1
-    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30" #count=50, only look at last,recent 30 submissions
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30" #look at recent 30 submissions
     response = requests.get(url)
     if response.status_code != 200:
         return -1
@@ -400,7 +380,6 @@ async def getEarliestSubmissionTime(handle, problem_id):
     else:
         print(f"Invalid problem_id format: {problem_id}")
         return -1
-
 
     for submission in data["result"]:
         problem = submission.get("problem", {})
@@ -420,16 +399,17 @@ async def getEarliestSubmissionTime(handle, problem_id):
 async def help(ctx):
     help_command_message = """
     **Bot Commands:**
-    `;register [codeforcesUsername]` - Register your Codeforces username with your Discord account
-    `;duel @user level` - Challenge another member to a duel with a Codeforces level
-    `;accept` - Accept the duel, you can @ the challenger to accept their duel if there are multiple initiated duels
-    `;complete` - Duel as complete, check results, update winner
+    `!register [codeforcesUsername]` - Register your Codeforces username with your Discord account
+    '!complete_verification' - Complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
+    `!duel @user level` - Challenge another member to a duel with a Codeforces level
+    `!accept` - Accept the duel, you can @ the challenger to accept their duel if there are multiple initiated duels
+    `!complete` - Duel as complete, check results, update winner
 
     **Examples:**
-    - `;register myCodeforcesUsername`
-    - `;duel @User123 1500`
-    - `;accept @user 
-    - `;complete`
+    - `!register myCodeforcesUsername`
+    - `!duel @User123 1500`
+    - `!accept @user 
+    - `!complete`
 
     **Notes:**
     - Make sure your Codeforces username is correct when registering
@@ -437,6 +417,7 @@ async def help(ctx):
     - Commands related to duels require both users to be registered
     """
     await ctx.send(help_command_message)
+
 
 #database error handling
 def database_error():
@@ -447,13 +428,6 @@ def database_error():
         return False
     return True
 
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 client.run(os.getenv('DISCORD_KEY'))
 #client.run must be bottom of all code...
-
-# note to run with database: 
-# run testDB.py to see if data is being stored in db
-# run python3 main.py to run bot
-
-
-

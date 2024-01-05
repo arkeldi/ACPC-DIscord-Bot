@@ -159,6 +159,8 @@ class BotDatabase:
             print(f"Database error during update_duel_status: {e}")
     
 
+
+
     def get_duel_challenge(self, discord_server_id, challengee_id):
         cursor = self.conn.cursor()
         cursor.execute('''
