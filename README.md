@@ -20,8 +20,6 @@ The user with the faster time is notified as the winner. The bot finally updates
 
 Further features such as history of duels, leaderboards, user stats, and more can all be easily implemented freely with the code framework. 
 
-Similarly for duels, the workflow for 
-
 ### Commands
 
 Command is ;
