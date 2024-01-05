@@ -61,7 +61,7 @@ async def register(ctx, codeforces_handle: str):
 
     db.initiate_verification(discord_server_id, discord_user_id, codeforces_handle, problem_id)
 
-    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `;complete_verification`.")
+    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `!complete_verification`.")
 
 
 @client.command()
@@ -200,7 +200,7 @@ async def duel(ctx, member: discord.Member, level: int):
     problem_url, problem_id = problem_info
 
     db.create_duel_challenge(discord_server_id, challenger_id, challengee_id, level, problem_id)
-    await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type ;accept to accept the challenge... if you dare.")
+    await ctx.send(f"{member.mention}, you have been challenged to a duel by {ctx.author.mention}! Type  `!accept` to accept the challenge... if you dare.")
 
 
 @client.command()
@@ -228,7 +228,6 @@ async def accept(ctx, challenger: discord.Member=None):
     await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
     await ctx.send(f"Problem: {problem_url}")
 
-
 @client.command()
 async def complete(ctx):
     discord_user_id = str(ctx.author.id)
@@ -250,11 +249,7 @@ async def complete(ctx):
     user_handle = db.get_codeforces_handle(discord_server_id, discord_user_id)
     opponent_id = ongoing_duel["challengee_id"] if ongoing_duel["challenger_id"] == discord_user_id else ongoing_duel["challenger_id"]
     opponent_handle = db.get_codeforces_handle(discord_server_id, opponent_id)
-
-    # get problem id from duel 
     problem_id = ongoing_duel["problem_id"]
-
-    #allow codeforces api to check for submissions
     time1 = await getEarliestSubmissionTime(user_handle, problem_id)
     time2 = await getEarliestSubmissionTime(opponent_handle, problem_id)
 
@@ -262,22 +257,34 @@ async def complete(ctx):
         await ctx.send("Neither user has completed the problem. Nice try buddy :P")
         return
 
-    # determine winner
-    if time1 != -1 and time2 != -1 and time1 == time2: #if both users did submit and they submitted at the same time, tie if case must come first 
-        await ctx.send("It's a tie! You both suck. rip")
-        return
-    elif time1 != -1 and (time2 == -1 or time1 < time2): #if user1 submitted and (user2 didnt or user1 submitted faster than user2)
-        winner_id = discord_user_id  #user who initiated the command wins
-    elif time2 != -1 and (time1 == -1 or time2 < time1): #if user2 submitted and (user1 didnt or user2 submitted faster than user1)
-        winner_id = opponent_id #user who took on the challenge wins
+    winner_id = None
+    if time1 != -1 and (time2 == -1 or time1 < time2):
+        winner_id = discord_user_id
+    elif time2 != -1 and (time1 == -1 or time2 < time1):
+        winner_id = opponent_id
+
+    if winner_id:
+        db.update_duel_status(ongoing_duel["duel_id"], 'complete')
+
+        loser_id = opponent_id if winner_id == discord_user_id else discord_user_id
+        db.update_user_stats(winner_id, loser_id)
+
+        winner_discord_user = await ctx.guild.fetch_member(int(winner_id))
+        await ctx.send(f'{winner_discord_user.mention} has won the duel! Yeaaaa boiiiii')
     else:
-        await ctx.send("Unable to determine the winner.")
-        return
+        await ctx.send("It's a tie or unable to determine the winner.")
 
-    db.update_duel_status(ongoing_duel["duel_id"], 'complete')
 
-    winner_discord_user = await ctx.guild.fetch_member(int(winner_id))
-    await ctx.send(f'{winner_discord_user.mention} has won the duel! Yeaaaaa boiiiiiiiii')
+@client.command()
+async def stats(ctx, member: discord.Member = None):
+    member = member or ctx.author  # if no member is provided, use author
+    user_stats = db.get_user_stats(ctx.guild.id, str(member.id))
+
+    if user_stats is None:
+        await ctx.send("No statistics available for this user.")
+    else:
+        duel_wins, duel_losses = user_stats
+        await ctx.send(f"{member.mention}'s Stats: Wins - {duel_wins}, Losses - {duel_losses}")
 
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):

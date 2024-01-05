@@ -1,3 +1,4 @@
+
 import sqlite3
 
 def init_db():
@@ -15,6 +16,7 @@ def init_db():
             problem_level INTEGER,
             status TEXT,
             problem_id TEXT,  
+            discord_user_id TEXT,
             FOREIGN KEY (challenger_id) REFERENCES verified_users (discord_user_id),
             FOREIGN KEY (challengee_id) REFERENCES verified_users (discord_user_id)
         );
@@ -25,10 +27,13 @@ def init_db():
             discord_user_id TEXT PRIMARY KEY,
             discord_server_id TEXT,
             codeforces_handle TEXT NOT NULL,
-            problem_id TEXT 
+            problem_id TEXT, 
+            duel_wins INTEGER DEFAULT 0,
+            duel_losses INTEGER DEFAULT 0
         );
     ''')
     
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verification_process (
             discord_user_id TEXT PRIMARY KEY,

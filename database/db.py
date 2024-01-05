@@ -47,6 +47,7 @@ class BotDatabase:
             print(f"Database error during verification check: {e}")
             return False
 
+
     def get_verification_details(self, discord_user_id):
         try:
             cursor = self.conn.cursor()
@@ -58,6 +59,7 @@ class BotDatabase:
             print(f"Database error during fetching verification details: {e}")
             return None, None
     
+
     def complete_verification(self, discord_user_id):
         try:
             cursor = self.conn.cursor()
@@ -77,8 +79,6 @@ class BotDatabase:
         except sqlite3.Error as e:
             print(f"Database error during completion of verification: {e}")
 
-
-    
     
     def register_user(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):
         try:
@@ -96,26 +96,11 @@ class BotDatabase:
             print(f"Database error: {e}")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def is_user_registered(self, discord_user_id):
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM verified_users WHERE discord_user_id = ?', (discord_user_id,))
         return cursor.fetchone() is not None
-
-
+    
 
     def create_duel_challenge(self, discord_server_id, challenger_id, challengee_id, level, problem_id):
         try:
@@ -142,25 +127,7 @@ class BotDatabase:
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             return None
-
-    def update_duel_status(self, duel_id, new_status, winner_id=None):
-        try:
-            cursor = self.conn.cursor()
-            if winner_id:
-                cursor.execute('''
-                    UPDATE duel_challenges SET status = ?, winner_id = ? WHERE duel_id = ?
-                ''', (new_status, winner_id, duel_id))
-            else:
-                cursor.execute('''
-                    UPDATE duel_challenges SET status = ? WHERE duel_id = ?
-                ''', (new_status, duel_id))
-            self.conn.commit()
-        except sqlite3.Error as e:
-            print(f"Database error during update_duel_status: {e}")
-    
-
-
-
+        
     def get_duel_challenge(self, discord_server_id, challengee_id):
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -191,6 +158,49 @@ class BotDatabase:
         ''', (discord_server_id, challengee_id))
         return cursor.fetchone()
 
+    def update_duel_status(self, duel_id, new_status, winner_id=None):
+        try:
+            cursor = self.conn.cursor()
+            if winner_id:
+                cursor.execute('''
+                    UPDATE duel_challenges SET status = ?, winner_id = ? WHERE duel_id = ?
+                ''', (new_status, winner_id, duel_id))
+            else:
+                cursor.execute('''
+                    UPDATE duel_challenges SET status = ? WHERE duel_id = ?
+                ''', (new_status, duel_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during update_duel_status: {e}")
+    
+
+    def get_user_stats(self, discord_server_id, user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT duel_wins, duel_losses FROM verified_users
+                WHERE discord_user_id = ? AND discord_server_id = ?
+            ''', (user_id, discord_server_id))
+            return cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Database error during get_user_stats: {e}")
+            return None
+        
+
+    def update_user_stats(self, winner_id, loser_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                UPDATE verified_users SET duel_wins = duel_wins + 1 WHERE discord_user_id = ?
+            ''', (winner_id,))
+
+            cursor.execute('''
+                UPDATE verified_users SET duel_losses = duel_losses + 1 WHERE discord_user_id = ?
+            ''', (loser_id,))
+
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during update_user_stats: {e}")
 
 
     def close(self):
