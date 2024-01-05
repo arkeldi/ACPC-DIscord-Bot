@@ -42,6 +42,9 @@ Command is ;
 - **Completing Duels**:
   ![complete]
   Determine duel winners based on problem-solving time and/or submission
+- **User Stats**:
+  ![stats]
+  Bot gives user record of wins and losses
 
 ### Additional Functionalities
 
