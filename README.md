@@ -6,6 +6,14 @@ ACPC Discord Duel Bot is a Discord bot designed to allow members to engage in a 
 
 Some features include 2-step regsitration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
 
+I incoroparted the backend workflow of this program in a series of steps: 
+When a user tried to !register their DiscordID with their Codeforces handle, this info is temporarily stored into the verification_process SQL table. 
+Then if the user successfully completes the 2-step verification process, their information which was temporarily stored, 
+Is then pushed into the verified_users table. 
+
+This was the most robust and efficient way I planned out to work out this 2-step verification feature within the backend. 
+
+
 ### Main Features
 
 Command is ;
