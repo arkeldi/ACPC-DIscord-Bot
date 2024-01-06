@@ -22,7 +22,7 @@ Further features such as history of duels, leaderboards, user stats, and more ca
 
 ### Commands
 
-Command is ;
+Command is !
 
 - **Registration**:
   ![codeforceshandle]
