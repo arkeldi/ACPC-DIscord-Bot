@@ -24,31 +24,39 @@ Further features such as history of duels, leaderboards, user stats, and more ca
 
 Command is !
 
+- **Help**:
+  ![help]
+  Provides a guide on using all the bot's commands and instructions
+
 - **Registration**:
   ![codeforceshandle]
   Link Discord IDs with Codeforces handles
   Bot gives a Codeforces problem link, asks user to submit a file that gives an error
+  
 - **Complete Registration**:
   ![complete_verification]
   If the user who initiated registration (discord link to Codeforces) successfully submits 
   API check to verify user has completed registration
+  
 - **Duel Challenges**:
   ![duel] @[otherMember] [codeForces level 800-3500, divisible by 100]
   Challenge others to solve specific Codeforces problems
+  
 - **Accepting Duels**:
   ![accept @specificUser]
   Accept challenges from other members
   Can @specific user initiated duel, to account for multiple duels initiated
+  
 - **Completing Duels**:
   ![complete]
   Determine duel winners based on problem-solving time and/or submission
+  
 - **User Stats**:
   ![stats]
   Bot gives user record of wins and losses
 
 ### Additional Functionalities
 
-- **Help Command**: Provides a guide on using all the bot's commands and instructions
 - **Database Integration**: Manages user data and duel records using SQLite
 
 ### Environment Setup
