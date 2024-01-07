@@ -298,6 +298,15 @@ async def stats(ctx, member: discord.Member = None):
         duel_wins, duel_losses = user_stats
         await ctx.send(f"{member.mention}'s Stats: Wins - {duel_wins}, Losses - {duel_losses}")
 
+@client.command()
+async def problem(ctx, difficulty: int):
+    problem_requester_id = str(ctx.author.id)
+    discord_server_id = str(ctx.guild.id)
+    problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
+
+    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
+
+    await ctx.send(f"Here's a problem of difficulty {difficulty}",problem[0])
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     challengerProblems = await getSolvedProblems(challengerHandle)
