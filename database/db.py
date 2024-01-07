@@ -4,7 +4,7 @@
 import sqlite3
 
 class BotDatabase:
-    def __init__(self, db_file='/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db'):
+    def __init__(self, db_file='/Users/jtmas/Desktop/ACPC-Discord-Bot/database/discord_bot.db'):
         print(f"Using database file: {db_file}")
         self.conn = sqlite3.connect(db_file)
         self.conn.row_factory = sqlite3.Row
