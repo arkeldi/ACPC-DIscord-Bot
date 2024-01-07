@@ -146,7 +146,7 @@ async def getConstraintedProblemsForVerification(codeforces_handle):
         return None
 
     problems = data["result"]["problems"]
-    eligibleProblems = [p for p in problems if "rating" in p and (p["contestId"], p["index"]) not in userProblems]
+    eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == 800 and (p["contestId"], p["index"]) not in userProblems]
 
     if not eligibleProblems:
         print("No eligible problems found")
@@ -168,6 +168,18 @@ def verifyCodeforcesHandle(codeforces_handle):
     except requests.RequestException as e:
         print(f"API request error: {e}")
     return False 
+
+
+@client.command()
+async def problem(ctx, difficulty: int):
+    problem_requester_id = str(ctx.author.id)
+    discord_server_id = str(ctx.guild.id)
+    problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
+
+    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
+
+    await ctx.send(f"Here's a problem of difficulty {difficulty}: {problem[0]}")
+
 
 
 @client.command()
