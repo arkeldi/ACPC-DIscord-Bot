@@ -4,7 +4,7 @@
 import sqlite3
 
 class BotDatabase:
-    def __init__(self, db_file='/Users/jtmas/Desktop/ACPC-Discord-Bot/database/discord_bot.db'):
+    def __init__(self, db_file='/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db'):
         print(f"Using database file: {db_file}")
         self.conn = sqlite3.connect(db_file)
         self.conn.row_factory = sqlite3.Row
@@ -78,6 +78,29 @@ class BotDatabase:
                 self.conn.commit()
         except sqlite3.Error as e:
             print(f"Database error during completion of verification: {e}")
+
+
+    def is_user_verified(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT * FROM verified_users WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            return cursor.fetchone() is not None
+        except sqlite3.Error as e:
+            print(f"Database error during verification status check: {e}")
+            return False
+
+            
+    def reset_registration(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                DELETE FROM verification_process WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during registration reset: {e}")
 
     
     def register_user(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):

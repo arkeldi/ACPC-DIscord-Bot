@@ -171,7 +171,23 @@ def verifyCodeforcesHandle(codeforces_handle):
 
 
 @client.command()
-async def problem(ctx, difficulty: int):
+async def restart_registration(ctx):
+    discord_user_id = str(ctx.author.id)
+
+    if db.is_user_verified(discord_user_id):
+        await ctx.send("You are already verified and cannot restart the registration process.")
+        return
+
+    if not db.is_verification_initiated(discord_user_id):
+        await ctx.send("You have not started the registration process.")
+        return
+
+    db.reset_registration(discord_user_id)
+    await ctx.send("Your registration process has been reset. You can now register again using `!register`.")
+
+
+@client.command()
+async def problemPractice(ctx, difficulty: int):
     problem_requester_id = str(ctx.author.id)
     discord_server_id = str(ctx.guild.id)
     problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
