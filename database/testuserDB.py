@@ -5,7 +5,7 @@ import sqlite3
 conn = sqlite3.connect('/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db')
 cursor = conn.cursor()
 # query to see all rows from the user_registrations table
-cursor.execute('SELECT * FROM verification_process')
+cursor.execute('SELECT * FROM verified_users')
 rows = cursor.fetchall()
 # print
 for row in rows:

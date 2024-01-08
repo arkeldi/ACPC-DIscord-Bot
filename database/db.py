@@ -1,6 +1,6 @@
 # functions to get data from database 
 # path: database/db.py
-
+# if you want to run sqlite3 in terminal, run sqlite3 path/to/database/discord_bot.db
 import sqlite3
 
 class BotDatabase:
@@ -63,15 +63,12 @@ class BotDatabase:
     def complete_verification(self, discord_user_id):
         try:
             cursor = self.conn.cursor()
-            # Retrieve verification details
             cursor.execute('''
                 SELECT discord_server_id, codeforces_handle, problem_id FROM verification_process WHERE discord_user_id = ?
             ''', (discord_user_id,))
             row = cursor.fetchone()
             if row:
-                # Register the user
                 self.register_user(row[0], discord_user_id, row[1], row[2])
-                # Delete the record from verification_process
                 cursor.execute('''
                     DELETE FROM verification_process WHERE discord_user_id = ?
                 ''', (discord_user_id,))
@@ -119,6 +116,17 @@ class BotDatabase:
             print(f"Database error: {e}")
 
 
+    def delete_user_registration(self, discord_user_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                DELETE FROM verified_users WHERE discord_user_id = ?
+            ''', (discord_user_id,))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during deleting user registration: {e}")
+
+
     def is_user_registered(self, discord_user_id):
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM verified_users WHERE discord_user_id = ?', (discord_user_id,))
@@ -151,6 +159,7 @@ class BotDatabase:
             print(f"Database error: {e}")
             return None
         
+
     def get_duel_challenge(self, discord_server_id, challengee_id):
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -159,6 +168,7 @@ class BotDatabase:
             WHERE discord_server_id = ? AND challengee_id = ? AND status = 'pending'
         ''', (discord_server_id, challengee_id))
         return cursor.fetchone()
+
 
     def get_specific_duel_challenge(self, discord_server_id, challenger_id, challengee_id):
         cursor = self.conn.cursor()
@@ -170,6 +180,7 @@ class BotDatabase:
         ''', (discord_server_id, challenger_id, challengee_id))
         return cursor.fetchone()
 
+
     def get_latest_duel_challenge(self, discord_server_id, challengee_id):
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -180,6 +191,7 @@ class BotDatabase:
             LIMIT 1
         ''', (discord_server_id, challengee_id))
         return cursor.fetchone()
+
 
     def update_duel_status(self, duel_id, new_status, winner_id=None):
         try:
@@ -195,7 +207,7 @@ class BotDatabase:
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Database error during update_duel_status: {e}")
-    
+
 
     def get_user_stats(self, discord_server_id, user_id):
         try:

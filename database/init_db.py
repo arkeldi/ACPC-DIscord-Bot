@@ -1,4 +1,3 @@
-
 import sqlite3
 
 def init_db():
@@ -21,6 +20,7 @@ def init_db():
             FOREIGN KEY (challengee_id) REFERENCES verified_users (discord_user_id)
         );
     ''')
+
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verified_users (
@@ -46,6 +46,7 @@ def init_db():
     # commit and close
     conn.commit()
     conn.close()
+
 
 if __name__ == '__main__':
     init_db()

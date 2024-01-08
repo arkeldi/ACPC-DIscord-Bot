@@ -6,7 +6,10 @@ import requests
 import random 
 from database.db import BotDatabase #importing BotDatabase class from db.py
 import json
+import aiohttp # pip install this
+import asyncio
 import time
+import re
 
 load_dotenv() #load discord bot key from .env file
 
@@ -18,13 +21,6 @@ db = BotDatabase() #create instance of BotDatabase class
 async def on_ready(): 
     print("Bot is ready") 
     print("------------------") 
-
-@client.event
-async def on_disconnect():
-    # close when bot disconnects 
-    db.close()
-    print("Database connection closed.")
-
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -43,7 +39,7 @@ async def on_command_error(ctx, error):
 
 @client.command() 
 async def register(ctx, codeforces_handle: str):
-    if not verifyCodeforcesHandle(codeforces_handle):
+    if not await verifyCodeforcesHandle(codeforces_handle):
         await ctx.send("That's not a codeforces username, trust me, i checked via api call xD")
         return
     
@@ -61,7 +57,7 @@ async def register(ctx, codeforces_handle: str):
 
     db.initiate_verification(discord_server_id, discord_user_id, codeforces_handle, problem_id)
 
-    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `!complete_verification`.")
+    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `!complete_verification`. In case of any issues, use the command `!restart_registration` to restart the registration process.")
 
 
 @client.command()
@@ -77,54 +73,73 @@ async def complete_verification(ctx):
         await ctx.send("Verification details not found.")
         return
 
-    if check_compilation_error_submission(codeforces_handle, problem_id):
+    # check_compilation_error_submission is now an async function, use await
+    if await check_compilation_error_submission(codeforces_handle, problem_id):
         db.complete_verification(discord_user_id)
         await ctx.send(f"Verification successful! Your Codeforces account {codeforces_handle} has been linked with {ctx.author.mention}.")
     else:
         await ctx.send("Verification failed. Please ensure you have submitted a compilation/runtime/wrong answer error for the specified problem.")
 
 
-def check_compilation_error_submission(handle, problem_id):
+@client.command()
+async def delete_registration(ctx):
+    discord_user_id = str(ctx.author.id)
+
+    # Check if the user is registered
+    if not db.is_user_registered(discord_user_id):
+        await ctx.send("You are not currently registered.")
+        return
+
+    # Delete the user's registration
+    db.delete_user_registration(discord_user_id)
+    await ctx.send("Your registration has been successfully deleted.")
+
+
+async def check_compilation_error_submission(handle, problem_id):
     """
-    this checks if the Ccdeforces user handle has made a recent submission, within 5 min 
+    this checks if the Codeforces user handle has made a recent submission, within 5 min 
     with a compilation/wrong/answer error for the specified problem.
 
-    :paramater handle: codeforces handle of user.
-    :paramater problem_id: The ID of the problem to check submissions for, just good to keep track of 
-    :return: true if a error submission is found, false otherwise
+    :parameter handle: codeforces handle of user.
+    :parameter problem_id: The ID of the problem to check submissions for, just good to keep track of 
+    :return: true if an error submission is found, false otherwise
     """
     url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
     try:
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f"API request failed with status code: {response.status_code}")
-            return False
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    print(f"API request failed with status code: {response.status}")
+                    return False
 
-        data = response.json()
-        if data["status"] != "OK":
-            print("Error in response from Codeforces API")
-            return False
+                data = await response.json()
+                if data["status"] != "OK":
+                    print("Error in response from Codeforces API")
+                    return False
 
         # parsing problem_id
+        contest_id, index = '', ''
         if '-' in problem_id:
             contest_id, index = problem_id.split('-')
         else:
             match = re.match(r"(\d+)([A-Za-z]+)", problem_id)
             if match:
                 contest_id, index = match.groups()
-            else:
-                print(f"Invalid problem_id format: {problem_id}")
-                return False
-            
+
+        if not contest_id or not index:
+            print(f"Invalid problem_id format: {problem_id}")
+            return False
+
+        current_time = time.time()
         for submission in data["result"]:
             if (str(submission["problem"]["contestId"]) == contest_id and
                 submission["problem"]["index"] == index and
-                (submission["verdict"] == "COMPILATION_ERROR" or submission["verdict"] == "RUNTIME_ERROR" or submission["verdict"] == "WRONG_ANSWER")):
-
-                if time.time() - submission["creationTimeSeconds"] < 300:
+                submission["verdict"] in ["COMPILATION_ERROR", "RUNTIME_ERROR", "WRONG_ANSWER"] and
+                current_time - submission["creationTimeSeconds"] < 300):
                     return True
         return False
-    except requests.RequestException as e:
+
+    except aiohttp.ClientError as e:
         print(f"Error fetching problems: {e}")
         return False
 
@@ -135,15 +150,15 @@ async def getConstraintedProblemsForVerification(codeforces_handle):
         print(f"Failed to fetch problems for user handle: {codeforces_handle}")
         return None
 
-    response = requests.get("https://codeforces.com/api/problemset.problems")
-    if response.status_code != 200:
-        print("Failed to fetch problems from Codeforces API")
-        return None
-
-    data = response.json()
-    if data["status"] != "OK":
-        print("Error in response from Codeforces API")
-        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://codeforces.com/api/problemset.problems") as response:
+            if response.status != 200:
+                print("Failed to fetch problems from Codeforces API")
+                return None
+            data = await response.json()
+            if data["status"] != "OK":
+                print("Error in response from Codeforces API")
+                return None
 
     problems = data["result"]["problems"]
     eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == 800 and (p["contestId"], p["index"]) not in userProblems]
@@ -160,14 +175,17 @@ async def getConstraintedProblemsForVerification(codeforces_handle):
     return problem_url, f"{contest_id}{index}"
 
 
-def verifyCodeforcesHandle(codeforces_handle):
-    try:
-        response = requests.get("https://codeforces.com/api/user.info?handles=" + codeforces_handle)
-        if response.status_code == 200:
-            return True 
-    except requests.RequestException as e:
-        print(f"API request error: {e}")
-    return False 
+async def verifyCodeforcesHandle(codeforces_handle):
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(f"https://codeforces.com/api/user.info?handles={codeforces_handle}") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data['status'] == 'OK'  
+        except aiohttp.ClientError as e:
+            print(f"API request error: {e}")
+    return False
+
 
 
 @client.command()
@@ -195,7 +213,6 @@ async def problemPractice(ctx, difficulty: int):
     problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
 
     await ctx.send(f"Here's a problem of difficulty {difficulty}: {problem[0]}")
-
 
 
 @client.command()
@@ -256,6 +273,7 @@ async def accept(ctx, challenger: discord.Member=None):
     await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
     await ctx.send(f"Problem: {problem_url}")
 
+
 @client.command()
 async def complete(ctx):
     discord_user_id = str(ctx.author.id)
@@ -314,6 +332,7 @@ async def stats(ctx, member: discord.Member = None):
         duel_wins, duel_losses = user_stats
         await ctx.send(f"{member.mention}'s Stats: Wins - {duel_wins}, Losses - {duel_losses}")
 
+
 @client.command()
 async def problem(ctx, difficulty: int):
     problem_requester_id = str(ctx.author.id)
@@ -323,6 +342,7 @@ async def problem(ctx, difficulty: int):
     problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
 
     await ctx.send(f"Here's a problem of difficulty {difficulty}",problem[0])
+
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     challengerProblems = await getSolvedProblems(challengerHandle)
@@ -337,15 +357,15 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
 
     combinedProblems = challengerProblems.union(opponentProblems)
 
-    response = requests.get("https://codeforces.com/api/problemset.problems")
-    if response.status_code != 200:
-        print("Failed to fetch problems from Codeforces API")
-        return None
-
-    data = response.json()
-    if data["status"] != "OK":
-        print("Error in response from Codeforces API")
-        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://codeforces.com/api/problemset.problems") as response:
+            if response.status != 200:
+                print("Failed to fetch problems from Codeforces API")
+                return None
+            data = await response.json()
+            if data["status"] != "OK":
+                print("Error in response from Codeforces API")
+                return None
 
     problems = data["result"]["problems"]
     eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == level and (p["contestId"], p["index"]) not in combinedProblems]
@@ -357,6 +377,7 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     problem = random.choice(eligibleProblems)
     problem_id = f"{problem['contestId']}{problem['index']}"
     return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem_id
+
 
 
 #what the func above is doing: 
@@ -377,46 +398,45 @@ async def getSolvedProblems(handle):
     url = f"https://codeforces.com/api/user.status?handle={handle}&from=1"
     print(f"Requesting URL: {url}")
 
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if data["status"] == "OK":
-                problems = set()
-                for submission in data["result"]:
-                    if submission["verdict"] == "OK":
-                        problem = submission["problem"]
-                        problems.add((problem["contestId"], problem["index"]))
-                print(f"Found {len(problems)} problems solved by {handle}")
-                return problems
-            else:
-                print(f"User handle not found or other API issue: {data['comment']}")
-                return None  
-        else:
-            print(f"API request failed with status code: {response.status_code}")
-            if response.content:
-                print(f"Response Content: {response.content}")
-            return None  
-    except requests.RequestException as e:
-        print(f"Error fetching problems: {e}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"JSON decoding error: {e}, Response content: {response.content}")
-        return None
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data["status"] == "OK":
+                        problems = set()
+                        for submission in data["result"]:
+                            if submission["verdict"] == "OK":
+                                problem = submission["problem"]
+                                problems.add((problem["contestId"], problem["index"]))
+                        print(f"Found {len(problems)} problems solved by {handle}")
+                        return problems
+                    else:
+                        print(f"User handle not found or other API issue: {data['comment']}")
+                        return None  
+                else:
+                    print(f"API request failed with status code: {response.status}")
+                    if response.content:
+                        content = await response.text()
+                        print(f"Response Content: {content}")
+                    return None  
+        except aiohttp.ClientError as e:
+            print(f"Error fetching problems: {e}")
+            return None
 
 
-import re
 async def getEarliestSubmissionTime(handle, problem_id):
     earliest_time = -1
-    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30" #look at recent 30 submissions
-    response = requests.get(url)
-    if response.status_code != 200:
-        return -1
-    
-    data = response.json()
-    if data["status"] != "OK":
-        return -1
+    url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30"  # look at recent 30 submissions
 
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status != 200:
+                return -1
+
+            data = await response.json()
+            if data["status"] != "OK":
+                return -1
 
     match = re.match(r"(\d+)([A-Za-z]+)", problem_id)
     if match:
@@ -427,11 +447,14 @@ async def getEarliestSubmissionTime(handle, problem_id):
 
     for submission in data["result"]:
         problem = submission.get("problem", {})
-        # debugging
-        print(f"Checking problem {problem.get('contestId')} - {problem.get('index')} against {contest_id} - {index}")
-        if submission.get("verdict") == "OK" and problem.get("contestId") == int(contest_id) and problem.get("index") == index:
+        author_handle = submission.get("author", {}).get("members", [{}])[0].get("handle")
+
+        # check if the submission is by the correct handle and matches the problem, xtra layer of security
+        if (submission.get("verdict") == "OK" and 
+            problem.get("contestId") == int(contest_id) and 
+            problem.get("index") == index and 
+            author_handle == handle):
             creation_time = submission.get("creationTimeSeconds", -1)
-            print(f"Accepted submission found for problem {contest_id}-{index} at time {creation_time}")
             if earliest_time == -1 or (creation_time != -1 and creation_time < earliest_time):
                 earliest_time = creation_time
 
@@ -445,6 +468,8 @@ async def help(ctx):
     **Bot Commands:**
     `!help` - Provides the guide on using all the bot's commands and instructions
     `!register [codeforcesUsername]` - Register your Codeforces username with your Discord account
+    `!restart_registration` - Restart the registration process, this can be used if you did not complete the verification process correctly
+    `!delete_registration` - Delete your registration, link between the Codeforces username and Discord account you complete_registration with will be removed
     '!complete_verification' - Complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
     `!duel @user level` - Challenge another member to a duel with a Codeforces level
     `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
@@ -464,16 +489,6 @@ async def help(ctx):
     - Commands related to duels require both users to be registered
     """
     await ctx.send(help_command_message)
-
-
-#database error handling
-def database_error():
-    try:
-        db.some_database_operation()
-    except SomeDatabaseException as e:
-        print(f"Database error: {e}")
-        return False
-    return True
 
 
 client.run(os.getenv('DISCORD_KEY'))
