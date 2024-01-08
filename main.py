@@ -187,16 +187,22 @@ async def restart_registration(ctx):
 
 
 @client.command()
-async def problemPractice(ctx, difficulty: int):
+async def problemPractice(ctx, difficulty: int, tag: str = "NULL"):
     problem_requester_id = str(ctx.author.id)
     discord_server_id = str(ctx.guild.id)
     problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
 
-    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
+    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle, tag)
 
-    await ctx.send(f"Here's a problem of difficulty {difficulty}: {problem[0]}")
+    if problem == None:
+        await ctx.send("Failed to fetch problems from Codeforces API")
+        return
 
-
+    s = f"Here's a problem of difficulty {difficulty}"
+    if(str != "NULL"):
+        s += f" and tag {tag}"
+    s += f": {problem[0]}"
+    await ctx.send(s)
 
 @client.command()
 async def duel(ctx, member: discord.Member, level: int):
@@ -314,17 +320,7 @@ async def stats(ctx, member: discord.Member = None):
         duel_wins, duel_losses = user_stats
         await ctx.send(f"{member.mention}'s Stats: Wins - {duel_wins}, Losses - {duel_losses}")
 
-@client.command()
-async def problem(ctx, difficulty: int):
-    problem_requester_id = str(ctx.author.id)
-    discord_server_id = str(ctx.guild.id)
-    problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
-
-    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
-
-    await ctx.send(f"Here's a problem of difficulty {difficulty}",problem[0])
-
-async def getConstraintedProblems(level, challengerHandle, opponentHandle):
+async def getConstraintedProblems(level, challengerHandle, opponentHandle, tag):
     challengerProblems = await getSolvedProblems(challengerHandle)
     if challengerProblems is None:
         print(f"Failed to fetch problems for challenger handle: {challengerHandle}")
@@ -348,7 +344,7 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
         return None
 
     problems = data["result"]["problems"]
-    eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == level and (p["contestId"], p["index"]) not in combinedProblems]
+    eligibleProblems = [p for p in problems if "rating" in p and p["rating"] == level and (p["contestId"], p["index"]) not in combinedProblems and "tags" in p and (tag == "NULL" or tag in p["tags"])]
 
     if not eligibleProblems:
         print("No eligible problems found")

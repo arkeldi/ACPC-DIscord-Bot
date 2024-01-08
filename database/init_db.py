@@ -1,9 +1,10 @@
 
 import sqlite3
+import os
 
 def init_db():
     # connect to the SQLite database
-    conn = sqlite3.connect('/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db')
+    conn = sqlite3.connect('/Users/jtmas/Desktop/ACPC-Discord-Bot/database/discord_bot.db')
 
     cursor = conn.cursor()
 
