@@ -1,4 +1,5 @@
 import sqlite3
+import os 
 
 def init_db():
     # connect to the SQLite database

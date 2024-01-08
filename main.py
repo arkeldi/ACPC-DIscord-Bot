@@ -6,13 +6,12 @@ import requests
 import random 
 from database.db import BotDatabase #importing BotDatabase class from db.py
 import json
-import aiohttp # pip install this
+import aiohttp # pip install this, all api calls are async
 import asyncio
 import time
 import re
 
 load_dotenv() #load discord bot key from .env file
-
 #initialize bot 
 client = commands.Bot(command_prefix = '!', intents = discord.Intents.all(), help_command=None) 
 db = BotDatabase() #create instance of BotDatabase class
@@ -21,6 +20,7 @@ db = BotDatabase() #create instance of BotDatabase class
 async def on_ready(): 
     print("Bot is ready") 
     print("------------------") 
+
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -33,66 +33,78 @@ async def on_command_error(ctx, error):
         return
     await ctx.send(f"Oops, something went wrong: {error}.")
 
+
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 
 @client.command() 
 async def register(ctx, codeforces_handle: str):
+    response_message = f"{ctx.author.mention}, "  # @ specific user for multiple requests to bot
+
     if not await verifyCodeforcesHandle(codeforces_handle):
-        await ctx.send("That's not a codeforces username, trust me, i checked via api call xD")
+        response_message += "That's not a Codeforces username, trust me, I checked via API call xD"
+        await ctx.send(response_message)
         return
     
     discord_server_id = str(ctx.guild.id)
     discord_user_id = str(ctx.author.id)
     
     if db.is_verification_initiated(discord_user_id) or db.is_user_registered(discord_user_id):
-        await ctx.send("You are already registered or in the process of verification.")
+        response_message += "You are already registered or in the process of verification."
+        await ctx.send(response_message)
         return
 
     problem_url, problem_id = await getConstraintedProblemsForVerification(codeforces_handle)
     if not problem_url:
-        await ctx.send("Failed to find a suitable problem for verification.")
+        response_message += "Failed to find a suitable problem for verification."
+        await ctx.send(response_message)
         return
 
     db.initiate_verification(discord_server_id, discord_user_id, codeforces_handle, problem_id)
-
-    await ctx.send(f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `!complete_verification`. In case of any issues, use the command `!restart_registration` to restart the registration process.")
+    response_message += f"To complete your registration, please submit a solution that results in a compilation/runtime/wrong answer error for this problem: {problem_url}. Once done, use the command `!complete_verification`. In case of any issues, use the command `!restart_registration` to restart the registration process."
+    await ctx.send(response_message)
 
 
 @client.command()
 async def complete_verification(ctx):
     discord_user_id = str(ctx.author.id)
+    response_message = f"{ctx.author.mention}, "  
 
     if not db.is_verification_initiated(discord_user_id):
-        await ctx.send("You have not initiated a verification process.")
+        response_message += "You have not initiated a verification process."
+        await ctx.send(response_message)
         return
 
     codeforces_handle, problem_id = db.get_verification_details(discord_user_id)
     if not codeforces_handle:
-        await ctx.send("Verification details not found.")
+        response_message += "Verification details not found."
+        await ctx.send(response_message)
         return
 
     # check_compilation_error_submission is now an async function, use await
     if await check_compilation_error_submission(codeforces_handle, problem_id):
         db.complete_verification(discord_user_id)
-        await ctx.send(f"Verification successful! Your Codeforces account {codeforces_handle} has been linked with {ctx.author.mention}.")
+        response_message += f"Verification successful! Your Codeforces account {codeforces_handle} has been linked."
     else:
-        await ctx.send("Verification failed. Please ensure you have submitted a compilation/runtime/wrong answer error for the specified problem.")
+        response_message += "Verification failed. Please ensure you have submitted a compilation/runtime/wrong answer error for the specified problem."
+
+    await ctx.send(response_message)
 
 
 @client.command()
 async def delete_registration(ctx):
     discord_user_id = str(ctx.author.id)
+    response_message = f"{ctx.author.mention}, " 
 
-    # Check if the user is registered
     if not db.is_user_registered(discord_user_id):
-        await ctx.send("You are not currently registered.")
+        response_message += "You are not currently registered."
+        await ctx.send(response_message)
         return
 
-    # Delete the user's registration
     db.delete_user_registration(discord_user_id)
-    await ctx.send("Your registration has been successfully deleted.")
+    response_message += "Your registration has been successfully deleted."
+    await ctx.send(response_message)
 
 
 async def check_compilation_error_submission(handle, problem_id):
@@ -187,42 +199,86 @@ async def verifyCodeforcesHandle(codeforces_handle):
     return False
 
 
-
 @client.command()
 async def restart_registration(ctx):
     discord_user_id = str(ctx.author.id)
+    response_message = f"{ctx.author.mention}, " 
 
     if db.is_user_verified(discord_user_id):
-        await ctx.send("You are already verified and cannot restart the registration process.")
+        response_message += "You are already verified and cannot restart the registration process."
+        await ctx.send(response_message)
         return
 
     if not db.is_verification_initiated(discord_user_id):
-        await ctx.send("You have not started the registration process.")
+        response_message += "You have not started the registration process."
+        await ctx.send(response_message)
         return
 
     db.reset_registration(discord_user_id)
-    await ctx.send("Your registration process has been reset. You can now register again using `!register`.")
+    response_message += "Your registration process has been reset. You can now register again using `!register`."
+    await ctx.send(response_message)
 
 
 @client.command()
-async def problemPractice(ctx, difficulty: int):
+async def problemPractice(ctx, difficulty: int, tag: str = "NULL"):
     problem_requester_id = str(ctx.author.id)
     discord_server_id = str(ctx.guild.id)
     problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
 
-    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
+    problem_info = await getConstraintedPracticeProblems(difficulty, problem_requester_handle, tag)
 
-    await ctx.send(f"Here's a problem of difficulty {difficulty}: {problem[0]}")
+    if problem_info is None:
+        await ctx.send(f"{ctx.author.mention}, you have to register with `!register` CodeforcesHandle before requesting problems.")
+        return
+
+    problem_url, problem_id = problem_info
+    response_message = f"{ctx.author.mention}, here's a problem of difficulty {difficulty}"
+    if tag != "NULL":
+        response_message += f" and tag {tag}"
+    response_message += f": {problem_url}"
+    
+    await ctx.send(response_message)
+
+
+async def getConstraintedPracticeProblems(difficulty, user_handle, tag):
+    user_problems = await getSolvedProblems(user_handle)
+    if user_problems is None:
+        print(f"Failed to fetch problems for user handle: {user_handle}")
+        return None
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://codeforces.com/api/problemset.problems") as response:
+            if response.status != 200:
+                print("Failed to fetch problems from Codeforces API")
+                return None
+            data = await response.json()
+            if data["status"] != "OK":
+                print("Error in response from Codeforces API")
+                return None
+
+    problems = data["result"]["problems"]
+    eligible_problems = [p for p in problems if "rating" in p and p["rating"] == difficulty and (p["contestId"], p["index"]) not in user_problems and "tags" in p and (tag == "NULL" or tag in p["tags"])]
+
+    if not eligible_problems:
+        print("No eligible problems found")
+        return None
+
+    problem = random.choice(eligible_problems)
+    problem_url = f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}"
+    return (problem_url, problem['index'])  
 
 
 @client.command()
 async def duel(ctx, member: discord.Member, level: int):
+    response_message = f"{ctx.author.mention}, " 
     if not 800 <= level <= 3500 or level % 100 != 0:
-        await ctx.send("Invalid problem difficulty >.<")
+        response_message += "Invalid problem difficulty >.<"
+        await ctx.send(response_message)
         return
 
     if member is None:
-        await ctx.send("Provide a user. Example: `;duel @user [level]`")
+        response_message += "Provide a user. Example: `!duel @user [level]`"
+        await ctx.send(response_message)
         return
 
     challenger_id = str(ctx.author.id)
@@ -233,7 +289,7 @@ async def duel(ctx, member: discord.Member, level: int):
     challengee_handle = db.get_codeforces_handle(discord_server_id, challengee_id)
 
     if not challenger_handle or not challengee_handle:
-        await ctx.send("Both users need to be registered with their Codeforces handles.")
+        await ctx.send("Both users need to be registered with their Codeforces account.")
         return
 
     problem_info = await getConstraintedProblems(level, challenger_handle, challengee_handle)
@@ -250,10 +306,10 @@ async def duel(ctx, member: discord.Member, level: int):
 
 @client.command()
 async def accept(ctx, challenger: discord.Member=None):
-    opponent_id = str(ctx.author.id)  # Get discord id of opponent
+    opponent_id = str(ctx.author.id)
     discord_server_id = str(ctx.guild.id)
 
-    #added @specificUser, if multipel duels are created 
+    #added @specificUser, if multiple duels are created 
     if challenger:
         duel_challenge = db.get_specific_duel_challenge(discord_server_id, str(challenger.id), opponent_id)
         if duel_challenge is None:
@@ -270,8 +326,7 @@ async def accept(ctx, challenger: discord.Member=None):
     contest_id, index = duel_challenge['problem_id'][:-1], duel_challenge['problem_id'][-1]
     problem_url = f"https://codeforces.com/problemset/problem/{contest_id}/{index}"
 
-    await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}>")
-    await ctx.send(f"Problem: {problem_url}")
+    await ctx.send(f"The duel has been accepted! {ctx.author.mention} versus <@{duel_challenge['challenger_id']}> Use `!complete` if you submitted an accepted solution to the problem. The first to solve the problem wins. Good luck! Problem: {problem_url}")
 
 
 @client.command()
@@ -323,25 +378,17 @@ async def complete(ctx):
 
 @client.command()
 async def stats(ctx, member: discord.Member = None):
-    member = member or ctx.author  # if no member is provided, use author
+    member = member or ctx.author  
+    response_message = f"{member.mention}, "  
     user_stats = db.get_user_stats(ctx.guild.id, str(member.id))
 
     if user_stats is None:
-        await ctx.send("No statistics available for this user.")
+        response_message += "No statistics available for this user."
     else:
         duel_wins, duel_losses = user_stats
-        await ctx.send(f"{member.mention}'s Stats: Wins - {duel_wins}, Losses - {duel_losses}")
+        response_message += f"Stats: Wins - {duel_wins}, Losses - {duel_losses}"
 
-
-@client.command()
-async def problem(ctx, difficulty: int):
-    problem_requester_id = str(ctx.author.id)
-    discord_server_id = str(ctx.guild.id)
-    problem_requester_handle = db.get_codeforces_handle(discord_server_id, problem_requester_id)
-
-    problem = await getConstraintedProblems(difficulty, problem_requester_handle, problem_requester_handle)
-
-    await ctx.send(f"Here's a problem of difficulty {difficulty}",problem[0])
+    await ctx.send(response_message)
 
 
 async def getConstraintedProblems(level, challengerHandle, opponentHandle):
@@ -377,7 +424,6 @@ async def getConstraintedProblems(level, challengerHandle, opponentHandle):
     problem = random.choice(eligibleProblems)
     problem_id = f"{problem['contestId']}{problem['index']}"
     return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem_id
-
 
 
 #what the func above is doing: 
@@ -457,9 +503,7 @@ async def getEarliestSubmissionTime(handle, problem_id):
             creation_time = submission.get("creationTimeSeconds", -1)
             if earliest_time == -1 or (creation_time != -1 and creation_time < earliest_time):
                 earliest_time = creation_time
-
     return earliest_time
-
 
 #help command for users 
 @client.command()
@@ -468,13 +512,15 @@ async def help(ctx):
     **Bot Commands:**
     `!help` - Provides the guide on using all the bot's commands and instructions
     `!register [codeforcesUsername]` - Register your Codeforces username with your Discord account
-    `!restart_registration` - Restart the registration process, this can be used if you did not complete the verification process correctly
+    `!restart_registration` - Restart the registration process, this can be used if you did not complete the verification process yet or if you want to change your Codeforces username before completing verification 
     `!delete_registration` - Delete your registration, link between the Codeforces username and Discord account you complete_registration with will be removed
-    '!complete_verification' - Complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
+    '!complete_verification' - Do this command after you complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
     `!duel @user level` - Challenge another member to a duel with a Codeforces level
     `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
+    `!accept @user` - Accept the duel from a specific user if there are multiple initiated duels
     `!complete` - Duel as complete, check results, update winner
     `!stats` - Check your duel statistics
+    `!problemPractice level [tag]` - Get a problem of a specific level, and optionally a tag, that you have not solved before
 
     **Examples:**
     - `!register myCodeforcesUsername`
