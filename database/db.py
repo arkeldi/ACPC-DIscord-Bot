@@ -1,10 +1,14 @@
 # functions to get data from database 
 # path: database/db.py
 # if you want to run sqlite3 in terminal, run sqlite3 path/to/database/discord_bot.db
+#DISCORD_BOT_DB_PATH is stored in .env file, with Discord bot token
+
 import sqlite3
+import os 
 
 class BotDatabase:
-    def __init__(self, db_file='/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db'):
+    def __init__(self):
+        db_file = os.getenv('DISCORD_BOT_DB_PATH', 'discord_bot.db')
         print(f"Using database file: {db_file}")
         self.conn = sqlite3.connect(db_file)
         self.conn.row_factory = sqlite3.Row

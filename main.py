@@ -510,24 +510,23 @@ async def getEarliestSubmissionTime(handle, problem_id):
 async def help(ctx):
     help_command_message = """
     **Bot Commands:**
-    `!help` - Provides the guide on using all the bot's commands and instructions
-    `!register [codeforcesUsername]` - Register your Codeforces username with your Discord account
-    `!restart_registration` - Restart the registration process, this can be used if you did not complete the verification process yet or if you want to change your Codeforces username before completing verification 
-    `!delete_registration` - Delete your registration, link between the Codeforces username and Discord account you complete_registration with will be removed
-    '!complete_verification' - Do this command after you complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
-    `!duel @user level` - Challenge another member to a duel with a Codeforces level
-    `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
-    `!accept @user` - Accept the duel from a specific user if there are multiple initiated duels
-    `!complete` - Duel as complete, check results, update winner
-    `!stats` - Check your duel statistics
-    `!problemPractice level [tag]` - Get a problem of a specific level, and optionally a tag, that you have not solved before
+    - `!help` - Provides the guide on using all the bot's commands and instructions
+    - `!register [codeforcesUsername]` - Register your Codeforces account with your Discord account
+    - `!restart_registration` - Can be used if you did not complete the verification process yet or if you want to change your Codeforces username before completing verification 
+    - `!delete_registration` - Delete your registration, link between the Codeforces username and Discord account you complete_registration with will be removed
+    - `!complete_verification` - Do this command after you complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
+    - `!duel @user level` - Challenge another member to a duel with a Codeforces level
+    - `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
+    - `!accept @user` - Accept the duel from a specific user if there are multiple initiated duels
+    - `!complete` - Duel as complete, check results, update winner
+    - `!stats` - Check your duel statistics
+    - `!problemPractice level [tag]` - Get a problem of a specific level, and optionally a tag, that you have not solved before
 
     **Examples:**
     - `!register myCodeforcesUsername`
     - `!duel @User123 1500`
     - `!accept @user` or `!accept`
-    - `!complete`
-    - `!stats`
+    - `!problemPractice 1500 dp` or `!problemPractice 1500`
 
     **Notes:**
     - Make sure your Codeforces username is correct when registering, the API does check anyway

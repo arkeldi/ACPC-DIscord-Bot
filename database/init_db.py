@@ -1,10 +1,15 @@
 import sqlite3
 import os 
+from dotenv import load_dotenv
 
 def init_db():
-    # connect to the SQLite database
-    conn = sqlite3.connect('/Users/arkeldi/Desktop/ACPC-Discord-Bot/database/discord_bot.db')
 
+    load_dotenv()
+
+    # connect to the SQLite database
+    #DISCORD_BOT_DB_PATH is stored in .env file, with Discord bot token
+    db_file = os.getenv('DISCORD_BOT_DB_PATH', 'discord_bot.db') 
+    conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
     cursor.execute('''
