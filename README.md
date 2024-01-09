@@ -43,7 +43,7 @@ Command is !
 
 ### Additional Functionalities
 
-- **Coding Practice**: Users can use the bot to give them random coding problems with a specific topic. Ex. !problemPractice 1500 dp` or `!problemPractice 1500 strings`
+- **Coding Practice**: Users can use the bot to give them random coding problems with a specific topic. Ex. !problemPractice 1500 dp or !problemPractice 1500 strings
 - **Database Integration**: Manages user data and duel records using SQLite
 
 ### Environment Setup
@@ -53,6 +53,7 @@ Before running the bot, you need to set up the environment:
 1. Create a `.env` file in the root directory of the project
 2. Add the following environment variable to the `.env` file:
    - **DISCORD_KEY**: Your Discord bot token. This token is essential for the bot to connect to the Discord API
+   - **DISCORD_BOT_DB_PATH**: Your discord_bot.db path, created after running init_db.py (the file that contains all SQL tables)
 
 The `.env` file is crucial as it stores sensitive information like your bot token securely
 
@@ -81,8 +82,4 @@ To launch the bot, use:
 ```bash
 python3 main.py
 ```
-
-
    
-
-
