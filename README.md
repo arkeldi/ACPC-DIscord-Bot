@@ -3,7 +3,7 @@
 ACPC Discord Duel Bot is a Discord bot designed to allow members to engage in a friendly coding game
 
 Our bot works asynchronously, which means that it can handle multiple commands/tasks simultaneously without waiting for each API call to finish. 
-Implementing asynchronous calls is like having several hot dog stands instead of just one. This way, instead of a long line of users waiting at a single stand, multiple stands can serve users concurrently. 
+Implementing asynchronous calls is like having several hot dog stands instead of just one. This way, instead of a long line of users waiting at a single stand, multiple stands can serve users all at the same time. 
 
 I decided that this was an essential implementation to take in deploying our bot. As a result, interactions are responsive and more robust, enhancing the overall user experience.
 
