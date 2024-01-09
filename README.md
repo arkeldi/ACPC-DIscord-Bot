@@ -45,6 +45,8 @@ Command is !
 
 - **Coding Practice**: Users can use the bot to give them random coding problems with a specific topic. Ex. !problemPractice 1500 dp or !problemPractice 1500 strings
 - **Database Integration**: Manages user data and duel records using SQLite
+- **Exceptional Test Case Handling**: Tese are covered in every way possible because of thorough planning and testing of bot. Take my word for it!
+- **Debugging**: Code has thorough debugging statements to make testing more efficient and reduce silent fails 
 
 ### Environment Setup
 
@@ -82,4 +84,4 @@ To launch the bot, use:
 ```bash
 python3 main.py
 ```
-   
+
