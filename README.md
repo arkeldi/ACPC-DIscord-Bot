@@ -24,36 +24,18 @@ Further features such as history of duels, leaderboards, user stats, and more ca
 
 Command is !
 
-- **Help**:
-  ![help]
-  Provides a guide on using all the bot's commands and instructions
-
-- **Registration**:
-  ![codeforceshandle]
-  Link Discord IDs with Codeforces handles
-  Bot gives a Codeforces problem link, asks user to submit a file that gives an error
-  
-- **Complete Registration**:
-  ![complete_verification]
-  If the user who initiated registration (discord link to Codeforces) successfully submits 
-  API check to verify user has completed registration
-  
-- **Duel Challenges**:
-  ![duel] @[otherMember] [codeForces level 800-3500, divisible by 100]
-  Challenge others to solve specific Codeforces problems
-  
-- **Accepting Duels**:
-  ![accept @specificUser]
-  Accept challenges from other members
-  Can @specific user initiated duel, to account for multiple duels initiated
-  
-- **Completing Duels**:
-  ![complete]
-  Determine duel winners based on problem-solving time and/or submission
-  
-- **User Stats**:
-  ![stats]
-  Bot gives user record of wins and losses
+    **Bot Commands:**
+    - `!help` - Provides the guide on using all the bot's commands and instructions
+    - `!register [codeforcesUsername]` - Register your Codeforces account with your Discord account
+    - `!restart_registration` - Can be used if you did not complete the verification process yet or if you want to change your Codeforces username before completing verification 
+    - `!delete_registration` - Delete your registration, link between the Codeforces username and Discord account you complete_registration with will be removed
+    - `!complete_verification` - Do this command after you complete the verification process by submitting a compilation/runtime/wrong answer error for the specified problem
+    - `!duel @user level` - Challenge another member to a duel with a Codeforces level
+    - `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
+    - `!accept @user` - Accept the duel from a specific user if there are multiple initiated duels
+    - `!complete` - Duel as complete, check results, update winner
+    - `!stats` - Check your duel statistics
+    - `!problemPractice level [tag]` - Get a problem of a specific level, and optionally a tag, that you have not solved before
 
 ### Additional Functionalities
 
