@@ -538,3 +538,4 @@ async def help(ctx):
 
 client.run(os.getenv('DISCORD_KEY'))
 #client.run must be bottom of all code...
+#testing commit 
