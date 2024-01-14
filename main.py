@@ -505,6 +505,146 @@ async def getEarliestSubmissionTime(handle, problem_id):
                 earliest_time = creation_time
     return earliest_time
 
+
+async def getEarliestSubmissionTimeForDuelParty(problem_id, *handles):
+    earliest_time = float('inf')
+    winner_handle = None
+
+    print(f"Debug: Starting getEarliestSubmissionTimeForDuelParty for problem_id: {problem_id} and handles: {handles}")
+
+    async with aiohttp.ClientSession() as session:
+        for handle in handles:
+            url = f"https://codeforces.com/api/user.status?handle={handle}&from=1&count=30"
+            print(f"Debug: Fetching submissions for handle {handle}")
+
+            try:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        print(f"Debug: API request failed for handle {handle} with status {response.status}")
+                        continue
+
+                    data = await response.json()
+                    if data["status"] != "OK":
+                        print(f"Debug: API response for handle {handle} not OK: {data}")
+                        continue
+
+                match = re.match(r"(\d+)([A-Za-z]+)", problem_id)
+                if match:
+                    contest_id, index = match.groups()
+                    print(f"Debug: Extracted contest_id: {contest_id}, index: {index}")
+                else:
+                    print(f"Debug: Invalid problem_id format: {problem_id}")
+                    continue
+
+                for submission in data["result"]:
+                    problem = submission.get("problem", {})
+                    if (submission.get("verdict") == "OK" and 
+                        problem.get("contestId") == int(contest_id) and 
+                        problem.get("index") == index):
+                        creation_time = submission.get("creationTimeSeconds", -1)
+                        print(f"Debug: Found valid submission for handle {handle} at time {creation_time}")
+                        if 0 <= creation_time < earliest_time:
+                            earliest_time = creation_time
+                            winner_handle = handle
+            except aiohttp.ClientError as e:
+                print(f"Debug: Error fetching submissions for handle {handle}: {e}")
+
+    print(f"Debug: Winner handle: {winner_handle}, Earliest Time: {earliest_time}")
+    return winner_handle, earliest_time
+
+
+
+async def getConstrainedProblemsForDuelParty(level, handles):
+    combined_problems = set()
+    for handle in handles:
+        user_problems = await getSolvedProblems(handle)
+        if user_problems is None:
+            print(f"Failed to fetch problems for user handle: {handle}")
+            return None
+        combined_problems = combined_problems.union(user_problems)
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://codeforces.com/api/problemset.problems") as response:
+            if response.status != 200:
+                print("Failed to fetch problems from Codeforces API")
+                return None
+            data = await response.json()
+            if data["status"] != "OK":
+                print("Error in response from Codeforces API")
+                return None
+
+    problems = data["result"]["problems"]
+    eligible_problems = [p for p in problems if "rating" in p and p["rating"] == level and (p["contestId"], p["index"]) not in combined_problems]
+
+    if not eligible_problems:
+        print("No eligible problems found")
+        return None
+
+    problem = random.choice(eligible_problems)
+    problem_id = f"{problem['contestId']}{problem['index']}"
+    return f"https://codeforces.com/problemset/problem/{problem['contestId']}/{problem['index']}", problem_id
+
+
+@client.command()
+async def duel_party(ctx, level: int, *members: discord.Member):
+    participants = [ctx.author] + list(members)
+
+    if len(participants) < 2:
+        await ctx.send("Please mention at least one other user for a duel party.")
+        return
+
+    discord_server_id = str(ctx.guild.id)
+    user_handles = [db.get_codeforces_handle(discord_server_id, str(member.id)) for member in participants]
+    if any(handle is None for handle in user_handles):
+        await ctx.send("Make sure everyone is registered with their Codeforces account.")
+        return
+
+    db.set_duel_party_participants(discord_server_id, user_handles)
+
+    problem_info = await getConstrainedProblemsForDuelParty(level, user_handles)
+
+    if problem_info is None:
+        await ctx.send("Failed to find a suitable problem. Please try again.")
+        return
+
+    problem_url, problem_id = problem_info
+    mentioned_users = ' '.join([member.mention for member in participants])
+
+    db.set_current_duel_party_problem(ctx.guild.id, problem_id)
+
+    await ctx.send(f"Duel party started for {mentioned_users}! First to solve this problem wins: {problem_url}!. Use `!complete_duel_party` when you have solved the problem.")
+
+@client.command()
+async def complete_duel_party(ctx):
+    discord_server_id = str(ctx.guild.id)
+    problem_id = db.get_current_duel_party_problem(discord_server_id)
+
+    if problem_id is None:
+        await ctx.send("No ongoing duel party found.")
+        return
+
+    participant_handles = db.get_duel_party_participants(discord_server_id)
+
+    winner_handle, _ = await getEarliestSubmissionTimeForDuelParty(problem_id, *participant_handles)
+
+    if winner_handle:
+        guild_members = ctx.guild.members
+        winner_member = None
+        for member in guild_members:
+            if db.get_codeforces_handle(discord_server_id, str(member.id)) == winner_handle:
+                winner_member = member
+                break
+
+        if winner_member:
+            await ctx.send(f"The duel party is complete! The winner is {winner_member.mention}!")
+        else:
+            await ctx.send("The winner could not be determined.")
+    else:
+        await ctx.send("No one has solved the problem yet.")
+
+
+
+
 #help command for users 
 @client.command()
 async def help(ctx):

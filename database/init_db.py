@@ -48,6 +48,21 @@ def init_db():
             problem_id TEXT
         );
      ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS current_duel_party (
+        discord_server_id TEXT PRIMARY KEY,
+        problem_id TEXT
+    );
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS duel_party_participants (
+    discord_server_id TEXT PRIMARY KEY,
+    participant_handles TEXT
+    );
+    ''')
+                   
 
     # commit and close
     conn.commit()

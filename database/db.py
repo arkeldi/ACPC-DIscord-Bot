@@ -241,6 +241,58 @@ class BotDatabase:
         except sqlite3.Error as e:
             print(f"Database error during update_user_stats: {e}")
 
+    def set_current_duel_party_problem(self, discord_server_id, problem_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO current_duel_party (discord_server_id, problem_id)
+                VALUES (?, ?)
+                ON CONFLICT(discord_server_id) DO UPDATE SET
+                problem_id = excluded.problem_id;
+            ''', (discord_server_id, problem_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during setting current duel party problem: {e}")
 
+    def get_current_duel_party_problem(self, discord_server_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT problem_id FROM current_duel_party
+                WHERE discord_server_id = ?
+            ''', (discord_server_id,))
+            row = cursor.fetchone()
+            return row['problem_id'] if row else None
+        except sqlite3.Error as e:
+            print(f"Database error during getting current duel party problem: {e}")
+            return None
+        
+
+    def set_duel_party_participants(self, discord_server_id, participant_handles):
+        try:
+            handles_str = ','.join(participant_handles)
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO duel_party_participants (discord_server_id, participant_handles)
+                VALUES (?, ?)
+                ON CONFLICT(discord_server_id) DO UPDATE SET
+                participant_handles = excluded.participant_handles;
+            ''', (discord_server_id, handles_str))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error during setting duel party participants: {e}")
+
+    def get_duel_party_participants(self, discord_server_id):
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT participant_handles FROM duel_party_participants
+                WHERE discord_server_id = ?
+            ''', (discord_server_id,))
+            row = cursor.fetchone()
+            return row['participant_handles'].split(',') if row else []
+        except sqlite3.Error as e:
+            print(f"Database error during getting duel party participants: {e}")
+            return []
     def close(self):
         self.conn.close()
