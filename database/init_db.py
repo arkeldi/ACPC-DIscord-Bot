@@ -20,32 +20,35 @@ def init_db():
             challengee_id TEXT NOT NULL,
             problem_level INTEGER,
             status TEXT,
-            problem_id TEXT,  
-            discord_user_id TEXT,
-            FOREIGN KEY (challenger_id) REFERENCES verified_users (discord_user_id),
-            FOREIGN KEY (challengee_id) REFERENCES verified_users (discord_user_id)
+            problem_id TEXT,
+            FOREIGN KEY (discord_server_id, challenger_id) REFERENCES verified_users (discord_server_id, discord_user_id),
+            FOREIGN KEY (discord_server_id, challengee_id) REFERENCES verified_users (discord_server_id, discord_user_id)
         );
     ''')
 
 
+#fix guild awareness here and in main.py, scroll a lil up in chat gpt
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verified_users (
-            discord_user_id TEXT PRIMARY KEY,
-            discord_server_id TEXT,
+            discord_user_id TEXT NOT NULL,
+            discord_server_id TEXT NOT NULL,
             codeforces_handle TEXT NOT NULL,
             problem_id TEXT, 
             duel_wins INTEGER DEFAULT 0,
-            duel_losses INTEGER DEFAULT 0
+            duel_losses INTEGER DEFAULT 0,
+            PRIMARY KEY (discord_user_id, discord_server_id)
         );
     ''')
     
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verification_process (
-            discord_user_id TEXT PRIMARY KEY,
-            discord_server_id TEXT,
+            discord_user_id TEXT NOT NULL,
+            discord_server_id TEXT NOT NULL,
             codeforces_handle TEXT NOT NULL,
-            problem_id TEXT
+            problem_id TEXT,
+            PRIMARY KEY (discord_user_id, discord_server_id)
         );
      ''')
     

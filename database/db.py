@@ -17,15 +17,18 @@ class BotDatabase:
     def get_codeforces_handle(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
-            cursor.execute('''
+            query = '''
                 SELECT codeforces_handle FROM verified_users
                 WHERE discord_server_id = ? AND discord_user_id = ?
-            ''', (discord_server_id, discord_user_id))
+            '''
+            print(f"Executing query: {query} with discord_server_id={discord_server_id}, discord_user_id={discord_user_id}")
+            cursor.execute(query, (discord_server_id, discord_user_id))
             row = cursor.fetchone()
             return row['codeforces_handle'] if row else None
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             return None
+
     
     #start verification 
     def initiate_verification(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):
@@ -40,28 +43,29 @@ class BotDatabase:
             print(f"Database error during verification initiation: {e}")
 
     
-    def is_verification_initiated(self, discord_user_id):
+    def is_verification_initiated(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                SELECT * FROM verification_process WHERE discord_user_id = ?
-            ''', (discord_user_id,))
+                SELECT * FROM verification_process WHERE discord_server_id = ? AND discord_user_id = ?
+            ''', (discord_server_id, discord_user_id))
             return cursor.fetchone() is not None
         except sqlite3.Error as e:
             print(f"Database error during verification check: {e}")
             return False
 
 
-    def get_verification_details(self, discord_user_id):
+    def get_verification_details(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                SELECT codeforces_handle, problem_id FROM verification_process WHERE discord_user_id = ?
-            ''', (discord_user_id,))
+                SELECT codeforces_handle, problem_id FROM verification_process WHERE discord_server_id = ? AND discord_user_id = ?
+            ''', (discord_server_id, discord_user_id))
             return cursor.fetchone()
         except sqlite3.Error as e:
             print(f"Database error during fetching verification details: {e}")
             return None, None
+
     
 
     def complete_verification(self, discord_user_id):
@@ -81,27 +85,28 @@ class BotDatabase:
             print(f"Database error during completion of verification: {e}")
 
 
-    def is_user_verified(self, discord_user_id):
+    def is_user_verified(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                SELECT * FROM verified_users WHERE discord_user_id = ?
-            ''', (discord_user_id,))
+                SELECT * FROM verified_users WHERE discord_server_id = ? AND discord_user_id = ?
+            ''', (discord_server_id, discord_user_id))
             return cursor.fetchone() is not None
         except sqlite3.Error as e:
             print(f"Database error during verification status check: {e}")
             return False
 
             
-    def reset_registration(self, discord_user_id):
+    def reset_registration(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                DELETE FROM verification_process WHERE discord_user_id = ?
-            ''', (discord_user_id,))
+                DELETE FROM verification_process WHERE discord_server_id = ? AND discord_user_id = ?
+            ''', (discord_server_id, discord_user_id))
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Database error during registration reset: {e}")
+
 
     
     def register_user(self, discord_server_id, discord_user_id, codeforces_handle, problem_id):
@@ -110,30 +115,32 @@ class BotDatabase:
             cursor.execute('''
                 INSERT INTO verified_users (discord_server_id, discord_user_id, codeforces_handle, problem_id)
                 VALUES (?, ?, ?, ?)
-                ON CONFLICT(discord_user_id) DO UPDATE SET 
+                ON CONFLICT(discord_server_id, discord_user_id) DO UPDATE SET 
                 codeforces_handle = excluded.codeforces_handle,
                 problem_id = excluded.problem_id
             ''', (discord_server_id, discord_user_id, codeforces_handle, problem_id))
-        
+
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Database error: {e}")
 
 
-    def delete_user_registration(self, discord_user_id):
+
+    def delete_user_registration(self, discord_server_id, discord_user_id):
         try:
             cursor = self.conn.cursor()
             cursor.execute('''
-                DELETE FROM verified_users WHERE discord_user_id = ?
-            ''', (discord_user_id,))
+                DELETE FROM verified_users WHERE discord_server_id = ? AND discord_user_id = ?
+            ''', (discord_server_id, discord_user_id))
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Database error during deleting user registration: {e}")
 
 
-    def is_user_registered(self, discord_user_id):
+
+    def is_user_registered(self, discord_server_id, discord_user_id):  
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM verified_users WHERE discord_user_id = ?', (discord_user_id,))
+        cursor.execute('SELECT * FROM verified_users WHERE discord_server_id = ? AND discord_user_id = ?', (discord_server_id, discord_user_id))
         return cursor.fetchone() is not None
     
 
