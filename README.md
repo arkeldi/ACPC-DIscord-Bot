@@ -7,6 +7,8 @@ Implementing asynchronous calls is like having several hot dog stands instead of
 
 I decided that this was an essential implementation to take in deploying our bot. As a result, interactions are responsive and more robust, enhancing the overall user experience.
 
+This bot is hosted on AWS EC2 for faster response times, 24/7 online service and better management. I found out that AWS gives you a free 1 year trial so this was the best option for our bot! 
+
 ## Features and Framework Workflow 
 
 Main features include 2-step regsitration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
@@ -38,8 +40,11 @@ Command is !
     - `!accept` - Accept the duel, you can @ the specific challenger to accept their duel if there are multiple initiated duels
     - `!accept @user` - Accept the duel from a specific user if there are multiple initiated duels
     - `!complete` - Duel as complete, check results, update winner
-    - `!stats` - Check your duel statistics
+    - `!stats` - Check your 1v1 duel statistics
     - `!problemPractice level [tag]` - Get a problem of a specific level, and optionally a tag, that you have not solved before
+    - `!duel_party level @user1 @user2 @user3` - Start a duel party with a specific level and users, first to solve the problem wins
+    - `!complete_duel_party` - Complete the duel party, check results, update winner
+    
 
 ### Additional Functionalities
 
@@ -68,11 +73,6 @@ Before launching the bot, it's important to set up the database:
    ```bash
    python3 init_db.py
 
-2. You can run testDB.py to run a quick simple test case to see if the database is working
-
-  ```bash
-   python3 testDB.py
-```
 
 ### Database Scheme
 DBscheme.png, file in the GitHub repo, is a diagram that shows the relationships between the database table
