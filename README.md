@@ -75,7 +75,7 @@ Before launching the bot, it's important to set up the database:
 
 
 ### Database Scheme
-DBscheme.png, file in the GitHub repo, is a diagram that shows the relationships between the database table
+DatabaseScheme.png, file in the GitHub repo, is a diagram that shows the relationships between the database table
 
 ### Running the Bot
 
