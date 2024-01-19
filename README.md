@@ -11,7 +11,7 @@ This bot is hosted on AWS EC2 for faster response times, 24/7 online service and
 
 ## Features and Framework Workflow 
 
-Main features include 2-step regsitration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
+Main features include 2-step registration which syncs up with each user's Codeforces account, challenging and accepting duels, and completing duels with results based on problem-solving time
 
 I incoroparted the backend workflow of the register command in a series of steps: 
 When a user tried to !register their DiscordID with their Codeforces handle, this info is temporarily stored into the verification_process SQL table. 
